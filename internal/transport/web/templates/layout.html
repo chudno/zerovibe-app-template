@@ -1,0 +1,50 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{{.Title}} · zerovibe</title>
+
+	<!-- Стили приложения (локальная статика, без CDN). Единая светлая база в
+	     app.css — держись её, расширяй под новые экраны в том же языке. -->
+	<link rel="stylesheet" href="/static/app.css">
+
+	<!-- htmx для интерактива (локально, без CDN — важно для работы в РФ). -->
+	<script src="/static/htmx.min.js"></script>
+</head>
+<!-- hx-boost: приложение работает как SPA. htmx перехватывает клики по обычным
+     ссылкам <a> и сабмиты форм, грузит страницу в фоне и подменяет <body> БЕЗ
+     полной перезагрузки — контент не пропадает на миллисекунду, нет «мигания».
+     URL и история браузера обновляются (кнопка «назад» работает). Держи этот
+     атрибут — это и есть плавная навигация без морганий.
+     hx-indicator/htmx-settling дают мягкое затухание вместо белой вспышки. -->
+<body hx-boost="true">
+	{{if eq .Page "landing"}}
+	<!-- Лендинг — полноэкранный, без стандартной шапки .page-head. -->
+	{{template "landing" .}}
+	{{else}}
+	<main class="container">
+		<header class="page-head">
+			<h1>{{.Title}}</h1>
+			{{if .User}}
+			<div class="user-bar">
+				<span class="muted">{{.User.Email}}</span>
+				{{if eq .User.Role "admin"}}<a class="navlink" href="/admin/settings">Настройки</a>{{end}}
+				<form method="post" action="/logout" style="display:inline">
+					<button class="btn-ghost" type="submit">Выйти</button>
+				</form>
+			</div>
+			{{end}}
+		</header>
+
+		{{if eq .Page "login"}}{{template "login" .}}
+		{{else if eq .Page "register"}}{{template "register" .}}
+		{{else if eq .Page "forgot"}}{{template "forgot" .}}
+		{{else if eq .Page "reset"}}{{template "reset" .}}
+		{{else if eq .Page "verify"}}{{template "verify" .}}
+		{{else if eq .Page "settings"}}{{template "settings" .}}
+		{{else}}{{template "content" .}}{{end}}
+	</main>
+	{{end}}
+</body>
+</html>{{end}}

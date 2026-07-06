@@ -1,0 +1,13 @@
+{{define "note"}}<div class="note" id="note-{{.ID}}">
+	<div class="note-head">
+		<h3>{{.Title}}</h3>
+		<!-- HTMX: DELETE возвращает пустоту, htmx убирает сам элемент (outerHTML). -->
+		<button class="btn-ghost btn-danger"
+			hx-delete="/notes/{{.ID}}"
+			hx-target="#note-{{.ID}}"
+			hx-swap="outerHTML"
+			hx-confirm="Удалить заметку?">Удалить</button>
+	</div>
+	{{if .Body}}<p class="note-body">{{.Body}}</p>{{end}}
+	{{if not .CreatedAt.IsZero}}<time class="note-time">{{.CreatedAt.Format "02.01.2006 15:04"}}</time>{{end}}
+</div>{{end}}

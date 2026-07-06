@@ -1,0 +1,175 @@
+/* app.css — базовые стили приложения Zerovibe.
+ *
+ * Светлая минималистичная тема в духе shadcn/ui: белый фон, почти-чёрный акцент,
+ * тонкие серые границы, мягкие тени, спокойные радиусы. Чистый CSS, без
+ * Tailwind/UIkit. Токены — в :root; классы расширяй по мере роста приложения,
+ * держась этого языка (не мешай стили вразнобой).
+ */
+
+:root {
+	/* Палитра (светлая, нейтральная — shadcn zinc). */
+	--bg:            #ffffff;
+	--surface:       #ffffff;
+	--surface-2:     #f4f4f5; /* zinc-100 — приглушённый фон полей/hover */
+	--border:        #e4e4e7; /* zinc-200 */
+	--text:          #18181b; /* zinc-900 */
+	--text-muted:    #52525b; /* zinc-600 */
+	--text-dim:      #a1a1aa; /* zinc-400 */
+	--accent:        #18181b; /* почти-чёрный — основная кнопка */
+	--accent-hover:  #27272a; /* zinc-800 */
+	--accent-fg:     #fafafa; /* текст на акценте */
+	--ring:          #a1a1aa; /* обводка фокуса */
+	--danger:        #dc2626; /* red-600 */
+
+	--radius:        10px;
+	--gap:           12px;
+	--shadow-sm:     0 1px 2px 0 rgba(0,0,0,.05);
+	--shadow:        0 1px 3px 0 rgba(0,0,0,.08), 0 1px 2px -1px rgba(0,0,0,.08);
+	--font-sans:     ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	--font-mono:     ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	font-family: var(--font-sans);
+	background: var(--bg);
+	color: var(--text);
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* ── SPA-навигация без мигания (htmx hx-boost) ──────────────────────────────
+ * htmx подменяет содержимое, добавляя классы htmx-swapping (уходящее) и
+ * htmx-settling (пришедшее). Лёгкое затухание вместо резкой белой вспышки —
+ * переход выглядит плавным. Держи это вместе с hx-boost на <body>. */
+.htmx-swapping { opacity: 0; transition: opacity .08s ease-out; }
+.htmx-settling { opacity: 1; }
+main { transition: opacity .12s ease-out; }
+/* Тонкая полоска прогресса вверху во время загрузки страницы — даёт понять,
+ * что переход идёт, без «зависшего» ощущения. Показывается пока htmx-request. */
+body.htmx-request::before {
+	content: ""; position: fixed; top: 0; left: 0; height: 2px; width: 100%;
+	background: var(--accent); opacity: .85; z-index: 9999;
+	animation: zv-progress 1s ease-out infinite;
+}
+@keyframes zv-progress { 0% { width: 0 } 100% { width: 100% } }
+
+.container {
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 48px 24px;
+}
+
+.page-head { margin-bottom: 32px; }
+.page-head h1 { font-size: 28px; letter-spacing: -0.4px; margin: 0 0 4px; font-weight: 650; }
+.muted { color: var(--text-muted); margin: 0; }
+
+/* Карточка — контейнер блока. */
+.card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 20px;
+	box-shadow: var(--shadow-sm);
+}
+
+/* Поля ввода. */
+.input, .textarea {
+	width: 100%;
+	padding: 9px 12px;
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--text);
+	font: inherit;
+	transition: border-color .12s, box-shadow .12s;
+}
+.input::placeholder, .textarea::placeholder { color: var(--text-dim); }
+.input:focus, .textarea:focus {
+	outline: none;
+	border-color: var(--ring);
+	box-shadow: 0 0 0 3px rgba(161,161,170,.25);
+}
+.textarea { min-height: 72px; resize: vertical; }
+
+/* Группа полей формы с вертикальным ритмом. */
+.field { display: flex; flex-direction: column; gap: var(--gap); }
+
+/* Кнопки. */
+.btn {
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 9px 18px; border: 1px solid transparent; border-radius: 8px;
+	background: var(--accent); color: var(--accent-fg); font: inherit; font-weight: 600;
+	cursor: pointer; transition: background .12s;
+	box-shadow: var(--shadow-sm);
+}
+.btn:hover { background: var(--accent-hover); }
+.btn-ghost {
+	background: none; color: var(--text-muted); padding: 6px 10px; font-weight: 500;
+	box-shadow: none;
+}
+.btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+/* Вторичная кнопка — контурная (outline), как в shadcn. */
+.btn-outline {
+	background: var(--surface); color: var(--text); border-color: var(--border);
+	box-shadow: var(--shadow-sm);
+}
+.btn-outline:hover { background: var(--surface-2); }
+.btn-danger { color: var(--danger); background: none; box-shadow: none; }
+.btn-danger:hover { background: rgba(220,38,38,.08); }
+
+/* Вертикальный отступ между блоками. */
+.stack > * + * { margin-top: var(--gap); }
+
+/* Один элемент заметки. */
+.note { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+.note-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.note-head h3 { margin: 0; font-size: 16px; }
+.note-body { margin: 8px 0 0; color: var(--text-muted); white-space: pre-wrap; }
+.note-time { display: block; margin-top: 12px; font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+
+.empty { color: var(--text-dim); }
+.text-dim { color: var(--text-dim); }
+
+/* Шапка с пользователем (email + выход). */
+.user-bar { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.navlink { color: var(--text); text-decoration: none; font-size: 14px; font-weight: 500; }
+.navlink:hover { text-decoration: underline; }
+
+/* Экраны аутентификации — центрированная карточка. */
+.auth-wrap { max-width: 380px; margin: 24px auto 0; }
+.auth-card { display: flex; flex-direction: column; gap: 16px; }
+.label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--text-muted); }
+.label .input { margin-top: 2px; }
+.auth-links { display: flex; justify-content: space-between; gap: 12px; }
+
+/* Сообщения форм. */
+.flash { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 14px; }
+.form-error { margin: 0; padding: 10px 12px; border-radius: 8px; background: rgba(220,38,38,.08); color: var(--danger); font-size: 14px; }
+
+/* Таблица настроек (минимальная — UI разовьём позже). */
+.settings-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.settings-table th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.settings-table td { padding: 10px 0; border-bottom: 1px solid var(--border); }
+
+/* ── Лендинг «эталонный шаблон» (публичная главная /) ─────────────────────── */
+.landing { max-width: 720px; margin: 0 auto; padding: 80px 24px; }
+.landing-hero { text-align: center; }
+.landing-badge {
+	display: inline-block; padding: 4px 12px; margin-bottom: 20px;
+	border: 1px solid var(--border); border-radius: 999px;
+	font-size: 12px; font-weight: 600; letter-spacing: .3px; color: var(--text-muted);
+	background: var(--surface-2);
+}
+.landing-hero h1 { font-size: 40px; line-height: 1.1; letter-spacing: -1px; margin: 0 0 16px; font-weight: 700; }
+.landing-hero p { font-size: 18px; color: var(--text-muted); margin: 0 auto 32px; max-width: 520px; }
+.landing-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.landing-features {
+	display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px; margin-top: 64px;
+}
+.landing-feature { text-align: left; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
+.landing-feature h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.landing-feature p { margin: 0; font-size: 14px; color: var(--text-muted); }

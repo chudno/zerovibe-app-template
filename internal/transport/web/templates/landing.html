@@ -1,0 +1,41 @@
+{{define "landing"}}
+<main class="landing">
+	<section class="landing-hero">
+		<span class="landing-badge">Эталонный шаблон</span>
+		<h1>Стартовый шаблон приложения</h1>
+		<p>
+			Готовая основа: аутентификация, роли, встроенная админка и опрятный
+			светлый интерфейс на HTMX — без перезагрузок страниц. Опишите, что нужно, —
+			и приложение вырастет отсюда.
+		</p>
+		<div class="landing-actions">
+			{{if .User}}
+			<a class="btn" href="/notes">Мои заметки</a>
+			{{if eq .User.Role "admin"}}<a class="btn btn-outline" href="/admin">Админка</a>{{end}}
+			{{else}}
+			<a class="btn" href="/login">Войти</a>
+			<a class="btn btn-outline" href="/register">Регистрация</a>
+			{{end}}
+		</div>
+	</section>
+
+	<section class="landing-features">
+		<div class="landing-feature">
+			<h3>Аутентификация из коробки</h3>
+			<p>Вход, регистрация, подтверждение почты и восстановление пароля, роли пользователя и админа.</p>
+		</div>
+		<div class="landing-feature">
+			<h3>Встроенная админка</h3>
+			<p>Бэкофис для ваших данных: список, форма, поиск и фильтры — по каждой сущности автоматически.</p>
+		</div>
+		<div class="landing-feature">
+			<h3>Интерфейс как SPA</h3>
+			<p>HTMX подменяет только нужные фрагменты — страницы не перезагружаются и не мигают.</p>
+		</div>
+		<div class="landing-feature">
+			<h3>Чистый стек</h3>
+			<p>Go + HTMX + SQLite, чистая архитектура, тесты. Никаких тяжёлых фронтенд-сборок.</p>
+		</div>
+	</section>
+</main>
+{{end}}
