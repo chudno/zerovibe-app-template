@@ -1,22 +1,26 @@
 {{define "settings"}}
-	<div class="card">
-		<p class="muted">Настройки приложения. Секреты не отображаются — только признак «задано».</p>
-		<table class="settings-table">
-			<thead><tr><th>Настройка</th><th>Значение</th></tr></thead>
-			<tbody>
-			{{range .Settings}}
-				<tr>
-					<td>{{.Title}} <span class="muted">({{.Key}})</span></td>
-					<td>
-						{{if eq .Kind "secret"}}
-							{{if .Set}}<span class="muted">задано</span>{{else}}<span class="text-dim">—</span>{{end}}
-						{{else}}
-							{{if .Value}}{{.Value}}{{else}}<span class="text-dim">—</span>{{end}}
-						{{end}}
-					</td>
-				</tr>
-			{{end}}
-			</tbody>
-		</table>
+	<div class="card border border-base-300 bg-base-100">
+		<div class="card-body gap-4">
+			<p class="text-sm text-base-content/70">Настройки приложения. Секреты не отображаются — только признак «задано».</p>
+			<div class="overflow-x-auto">
+				<table class="table">
+					<thead><tr><th>Настройка</th><th>Значение</th></tr></thead>
+					<tbody>
+					{{range .Settings}}
+						<tr>
+							<td>{{.Title}} <span class="text-base-content/50">({{.Key}})</span></td>
+							<td>
+								{{if eq .Kind "secret"}}
+									{{if .Set}}<span class="badge badge-ghost">задано</span>{{else}}<span class="text-base-content/40">—</span>{{end}}
+								{{else}}
+									{{if .Value}}{{.Value}}{{else}}<span class="text-base-content/40">—</span>{{end}}
+								{{end}}
+							</td>
+						</tr>
+					{{end}}
+					</tbody>
+				</table>
+			</div>
+		</div>
 	</div>
 {{end}}

@@ -1,0 +1,37 @@
+/* Исходник CSS приложения — Tailwind CSS v4 + DaisyUI (собирается в
+ * internal/transport/web/static/app.css через `make css`; результат вшивается в
+ * бинарь через embed). Собирается standalone-бинарём tailwindcss-extra (Node НЕ
+ * нужен, DaisyUI внутри бинаря).
+ *
+ * source(none) + явный @source: сканируем ТОЛЬКО html-шаблоны приложения —
+ * tree-shaking, в итоговый CSS попадают лишь реально использованные классы и
+ * компоненты DaisyUI (обычно 5–15 kB вместо всей библиотеки).
+ *
+ * Темы: светлая по умолчанию + тёмная по системной prefers-color-scheme. */
+@import "tailwindcss" source(none);
+@plugin "daisyui" {
+	/* Включены ВСЕ встроенные темы daisyUI. Пользователь выбирает тему
+	   переключателем в шапке (см. "theme-toggle" в layout.html); выбор
+	   сохраняется. По умолчанию (без явного выбора) — светлая, а на устройстве
+	   с тёмной системной темой — тёмная (--default / --prefersdark).
+	   Чтобы сделать дефолтной другую тему — перенеси метку --default на неё. */
+	themes: light --default, dark --prefersdark, cupcake, bumblebee, emerald,
+		corporate, synthwave, retro, cyberpunk, valentine, halloween, garden,
+		forest, aqua, lofi, pastel, fantasy, wireframe, black, luxury, dracula,
+		cmyk, autumn, business, acid, lemonade, night, coffee, winter, dim,
+		nord, sunset, caramellatte, abyss, silk;
+}
+@source "../internal/transport/web/templates";
+
+/* Плавность hx-boost / htmx-подмен: лёгкое затухание заменяемого контента, чтобы
+ * SPA-навигация и подмены фрагментов не «моргали». htmx на время свопа вешает
+ * .htmx-swapping на уходящий контент, затем .htmx-settling на новый. Не удалять —
+ * на эти классы ссылается skill `conventions` (SPA без перезагрузки). */
+.htmx-swapping {
+	opacity: 0;
+	transition: opacity 90ms ease-out;
+}
+.htmx-settling {
+	opacity: 1;
+	transition: opacity 90ms ease-in;
+}

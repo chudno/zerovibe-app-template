@@ -1,41 +1,56 @@
 {{define "landing"}}
-<main class="landing">
-	<section class="landing-hero">
-		<span class="landing-badge">Эталонный шаблон</span>
-		<h1>Стартовый шаблон приложения</h1>
-		<p>
-			Готовая основа: аутентификация, роли, встроенная админка и опрятный
-			светлый интерфейс на HTMX — без перезагрузок страниц. Опишите, что нужно, —
-			и приложение вырастет отсюда.
-		</p>
-		<div class="landing-actions">
-			{{if .User}}
-			<a class="btn" href="/notes">Мои заметки</a>
-			{{if eq .User.Role "admin"}}<a class="btn btn-outline" href="/admin">Админка</a>{{end}}
-			{{else}}
-			<a class="btn" href="/login">Войти</a>
-			<a class="btn btn-outline" href="/register">Регистрация</a>
-			{{end}}
+<div class="relative min-h-screen bg-base-100 text-base-content">
+	<div class="absolute right-4 top-4 z-10 md:right-8 md:top-6">
+		{{template "theme-toggle" .}}
+	</div>
+	<section class="hero py-20">
+		<div class="hero-content text-center">
+			<div class="max-w-2xl">
+				<span class="badge badge-outline badge-lg mb-5">Эталонный шаблон</span>
+				<h1 class="text-4xl font-bold tracking-tight sm:text-5xl">Стартовый шаблон приложения</h1>
+				<p class="mx-auto mt-5 max-w-xl text-lg text-base-content/70">
+					Готовая основа: аутентификация, роли, встроенная админка и опрятный
+					интерфейс на DaisyUI — без перезагрузок страниц. Опишите, что нужно, —
+					и приложение вырастет отсюда.
+				</p>
+				<div class="mt-8 flex flex-wrap justify-center gap-3">
+					{{if .User}}
+					<a class="btn btn-primary" href="/notes">Мои заметки</a>
+					{{if eq .User.Role "admin"}}<a class="btn btn-outline" href="/admin">Админка</a>{{end}}
+					{{else}}
+					<a class="btn btn-primary" href="/login">Войти</a>
+					<a class="btn btn-outline" href="/register">Регистрация</a>
+					{{end}}
+				</div>
+			</div>
 		</div>
 	</section>
 
-	<section class="landing-features">
-		<div class="landing-feature">
-			<h3>Аутентификация из коробки</h3>
-			<p>Вход, регистрация, подтверждение почты и восстановление пароля, роли пользователя и админа.</p>
+	<section class="mx-auto grid max-w-4xl gap-4 px-4 pb-20 sm:grid-cols-2">
+		<div class="card border border-base-300 bg-base-100">
+			<div class="card-body">
+				<h3 class="card-title text-base">Аутентификация из коробки</h3>
+				<p class="text-sm text-base-content/70">Вход, регистрация, подтверждение почты и восстановление пароля, роли пользователя и админа.</p>
+			</div>
 		</div>
-		<div class="landing-feature">
-			<h3>Встроенная админка</h3>
-			<p>Бэкофис для ваших данных: список, форма, поиск и фильтры — по каждой сущности автоматически.</p>
+		<div class="card border border-base-300 bg-base-100">
+			<div class="card-body">
+				<h3 class="card-title text-base">Встроенная админка</h3>
+				<p class="text-sm text-base-content/70">Бэкофис для ваших данных: список, форма, поиск и фильтры — по каждой сущности автоматически.</p>
+			</div>
 		</div>
-		<div class="landing-feature">
-			<h3>Интерфейс как SPA</h3>
-			<p>HTMX подменяет только нужные фрагменты — страницы не перезагружаются и не мигают.</p>
+		<div class="card border border-base-300 bg-base-100">
+			<div class="card-body">
+				<h3 class="card-title text-base">Интерфейс как SPA</h3>
+				<p class="text-sm text-base-content/70">HTMX подменяет только нужные фрагменты — страницы не перезагружаются и не мигают.</p>
+			</div>
 		</div>
-		<div class="landing-feature">
-			<h3>Чистый стек</h3>
-			<p>Go + HTMX + SQLite, чистая архитектура, тесты. Никаких тяжёлых фронтенд-сборок.</p>
+		<div class="card border border-base-300 bg-base-100">
+			<div class="card-body">
+				<h3 class="card-title text-base">Чистый стек</h3>
+				<p class="text-sm text-base-content/70">Go + HTMX + SQLite + DaisyUI, чистая архитектура, тесты. Без Node — CSS собирается standalone-бинарём.</p>
+			</div>
 		</div>
 	</section>
-</main>
+</div>
 {{end}}

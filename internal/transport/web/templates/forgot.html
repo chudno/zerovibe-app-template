@@ -1,20 +1,23 @@
 {{define "forgot"}}
-<div class="auth-wrap">
-	<div class="card auth-card">
-		{{if .Flash}}
-		<p class="flash">{{.Flash}}</p>
-		<div class="auth-links"><a class="navlink" href="/login">Вернуться ко входу</a></div>
-		{{else}}
-		{{if .Err}}<p class="form-error">{{.Err}}</p>{{end}}
-		<p class="muted">Укажите email — пришлём ссылку для сброса пароля.</p>
-		<form class="field" method="post" action="/forgot">
-			<label class="label">Email
-				<input class="input" type="email" name="email" autocomplete="username" required autofocus>
-			</label>
-			<button class="btn" type="submit">Отправить ссылку</button>
-		</form>
-		<div class="auth-links"><a class="navlink" href="/login">Вспомнили пароль? Войти</a></div>
-		{{end}}
+<div class="mx-auto mt-6 w-full max-w-sm">
+	<div class="card border border-base-300 bg-base-100">
+		<div class="card-body gap-4">
+			{{if .Flash}}
+			<div class="alert alert-info text-sm">{{.Flash}}</div>
+			<div class="text-sm"><a class="link link-hover" href="/login">Вернуться ко входу</a></div>
+			{{else}}
+			{{if .Err}}<div class="alert alert-error text-sm">{{.Err}}</div>{{end}}
+			<p class="text-sm text-base-content/70">Укажите email — пришлём ссылку для сброса пароля.</p>
+			<form method="post" action="/forgot">
+				<fieldset class="fieldset">
+					<label class="label" for="email">Email</label>
+					<input id="email" class="input w-full" type="email" name="email" autocomplete="username" required autofocus>
+					<button class="btn btn-primary btn-block mt-2" type="submit">Отправить ссылку</button>
+				</fieldset>
+			</form>
+			<div class="text-sm"><a class="link link-hover" href="/login">Вспомнили пароль? Войти</a></div>
+			{{end}}
+		</div>
 	</div>
 </div>
 {{end}}

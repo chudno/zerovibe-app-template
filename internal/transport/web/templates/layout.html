@@ -5,38 +5,89 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>{{.Title}} · zerovibe</title>
 
-	<!-- Стили приложения (локальная статика, без CDN). Единая светлая база в
-	     app.css — держись её, расширяй под новые экраны в том же языке. -->
+	<!-- Стили приложения — Tailwind CSS + DaisyUI, собраны в static/app.css
+	     (см. assets/input.css, `make css`). Локальная статика, без CDN. Верстай
+	     на компонентах DaisyUI (см. skill daisyui). -->
 	<link rel="stylesheet" href="/static/app.css">
 
 	<!-- htmx для интерактива (локально, без CDN — важно для работы в РФ). -->
 	<script src="/static/htmx.min.js"></script>
+
+	<!-- Тема оформления. daisyUI даёт множество встроенных тем (см. список в
+	     assets/input.css). По умолчанию (пользователь ничего не выбирал) тему
+	     задаёт система: светлая, а при тёмной системной настройке — тёмная
+	     (--default / --prefersdark в input.css). Как только пользователь выбрал
+	     тему переключателем в шапке — её имя сохраняется в localStorage и ставится
+	     атрибутом data-theme на <html>, перекрывая системную. Скрипт стоит в
+	     <head> и применяет сохранённую тему ДО отрисовки, чтобы не было вспышки
+	     чужой темы. hx-boost меняет только <body>, поэтому <html> и этот скрипт
+	     живут всю сессию; выбранный пункт в меню синхронизируется после swap. -->
+	<script>
+		(function () {
+			// Прочитать сохранённое имя темы (или null, если выбора не было).
+			function stored() {
+				try { return localStorage.getItem("theme"); } catch (e) { return null; }
+			}
+
+			// Применить сохранённый выбор к <html>. Нет выбора — снимаем data-theme,
+			// тогда работает системная prefers-color-scheme (light/dark по системе).
+			function applyStored() {
+				var t = stored();
+				if (t) document.documentElement.setAttribute("data-theme", t);
+				else document.documentElement.removeAttribute("data-theme");
+			}
+			applyStored();
+
+			// Отметить в меню радио-пункт активной темы (после hx-boost и на старте).
+			function syncRadios() {
+				var t = stored();
+				document.querySelectorAll("input.theme-controller").forEach(function (el) {
+					el.checked = !!t && el.value === t;
+				});
+			}
+
+			// Выбор темы в меню: сохранить имя и применить сразу.
+			document.addEventListener("change", function (e) {
+				var el = e.target;
+				if (!el.classList || !el.classList.contains("theme-controller")) return;
+				if (!el.value) return;
+				try { localStorage.setItem("theme", el.value); } catch (err) {}
+				document.documentElement.setAttribute("data-theme", el.value);
+			});
+
+			document.addEventListener("htmx:afterSwap", syncRadios);
+			document.addEventListener("DOMContentLoaded", syncRadios);
+		})();
+	</script>
 </head>
 <!-- hx-boost: приложение работает как SPA. htmx перехватывает клики по обычным
      ссылкам <a> и сабмиты форм, грузит страницу в фоне и подменяет <body> БЕЗ
      полной перезагрузки — контент не пропадает на миллисекунду, нет «мигания».
      URL и история браузера обновляются (кнопка «назад» работает). Держи этот
-     атрибут — это и есть плавная навигация без морганий.
-     hx-indicator/htmx-settling дают мягкое затухание вместо белой вспышки. -->
-<body hx-boost="true">
+     атрибут — это и есть плавная навигация без морганий. Тема DaisyUI (светлая
+     по умолчанию, тёмная по системной настройке) задана в assets/input.css. -->
+<body hx-boost="true" class="min-h-screen bg-base-100 text-base-content">
 	{{if eq .Page "landing"}}
-	<!-- Лендинг — полноэкранный, без стандартной шапки .page-head. -->
+	<!-- Лендинг — полноэкранный, без стандартной шапки. -->
 	{{template "landing" .}}
 	{{else}}
-	<main class="container">
-		<header class="page-head">
-			<h1>{{.Title}}</h1>
+	<div class="navbar border-b border-base-300 bg-base-100 px-4 md:px-8">
+		<div class="flex-1">
+			<span class="text-lg font-semibold">{{.Title}}</span>
+		</div>
+		<div class="flex flex-none items-center gap-3">
 			{{if .User}}
-			<div class="user-bar">
-				<span class="muted">{{.User.Email}}</span>
-				{{if eq .User.Role "admin"}}<a class="navlink" href="/admin/settings">Настройки</a>{{end}}
-				<form method="post" action="/logout" style="display:inline">
-					<button class="btn-ghost" type="submit">Выйти</button>
-				</form>
-			</div>
+			<span class="hidden text-sm text-base-content/60 sm:inline">{{.User.Email}}</span>
+			{{if eq .User.Role "admin"}}<a class="link link-hover text-sm" href="/admin/settings">Настройки</a>{{end}}
+			<form method="post" action="/logout">
+				<button class="btn btn-ghost btn-sm" type="submit">Выйти</button>
+			</form>
 			{{end}}
-		</header>
+			{{template "theme-toggle" .}}
+		</div>
+	</div>
 
+	<main class="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
 		{{if eq .Page "login"}}{{template "login" .}}
 		{{else if eq .Page "register"}}{{template "register" .}}
 		{{else if eq .Page "forgot"}}{{template "forgot" .}}
@@ -48,3 +99,440 @@
 	{{end}}
 </body>
 </html>{{end}}
+
+<!-- Переключатель темы: выпадающее меню (dropdown) со списком всех встроенных
+     тем daisyUI. Каждый пункт — radio с классом theme-controller (компонент
+     daisyUI): выбор радио мгновенно применяет тему к странице; рядом мини-превью
+     из 4 цветов темы (обёртка data-theme="имя" + bg-* берут цвета этой темы, без
+     хардкода). Открытие/закрытие меню — на <details>/<summary>, без JS. Сохранение
+     выбора и синхронизация активного пункта — скриптом в <head> layout. -->
+{{define "theme-toggle"}}
+<details class="dropdown dropdown-end">
+	<summary class="btn btn-ghost btn-circle btn-sm" aria-label="Выбрать тему">
+		<svg class="h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18 2.5 2.5 0 0 0 2.5-2.5c0-.6-.2-1.1-.6-1.6-.3-.4-.5-.8-.5-1.3a1.5 1.5 0 0 1 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
+	</summary>
+	<ul class="dropdown-content menu z-10 mt-2 max-h-96 w-56 flex-nowrap overflow-y-auto rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
+		<li class="menu-title">Тема оформления</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="light" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="light">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">light</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="dark" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="dark">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">dark</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="cupcake" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="cupcake">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">cupcake</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="bumblebee" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="bumblebee">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">bumblebee</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="emerald" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="emerald">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">emerald</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="corporate" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="corporate">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">corporate</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="synthwave" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="synthwave">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">synthwave</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="retro" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="retro">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">retro</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="cyberpunk" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="cyberpunk">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">cyberpunk</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="valentine" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="valentine">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">valentine</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="halloween" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="halloween">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">halloween</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="garden" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="garden">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">garden</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="forest" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="forest">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">forest</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="aqua" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="aqua">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">aqua</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="lofi" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="lofi">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">lofi</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="pastel" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="pastel">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">pastel</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="fantasy" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="fantasy">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">fantasy</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="wireframe" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="wireframe">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">wireframe</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="black" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="black">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">black</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="luxury" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="luxury">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">luxury</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="dracula" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="dracula">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">dracula</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="cmyk" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="cmyk">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">cmyk</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="autumn" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="autumn">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">autumn</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="business" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="business">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">business</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="acid" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="acid">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">acid</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="lemonade" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="lemonade">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">lemonade</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="night" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="night">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">night</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="coffee" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="coffee">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">coffee</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="winter" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="winter">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">winter</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="dim" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="dim">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">dim</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="nord" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="nord">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">nord</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="sunset" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="sunset">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">sunset</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="caramellatte" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="caramellatte">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">caramellatte</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="abyss" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="abyss">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">abyss</span>
+				</label>
+			</li>
+			<li>
+				<label class="flex items-center gap-3 px-2">
+					<input type="radio" name="theme-dropdown" value="silk" class="theme-controller sr-only" />
+					<span class="grid shrink-0 grid-cols-2 gap-0.5 rounded-md p-1 shadow-sm" data-theme="silk">
+						<span class="size-1.5 rounded-full bg-base-content"></span>
+						<span class="size-1.5 rounded-full bg-primary"></span>
+						<span class="size-1.5 rounded-full bg-secondary"></span>
+						<span class="size-1.5 rounded-full bg-accent"></span>
+					</span>
+					<span class="w-full truncate text-sm capitalize">silk</span>
+				</label>
+			</li>
+	</ul>
+</details>
+{{end}}

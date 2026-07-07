@@ -19,6 +19,7 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -32,6 +33,13 @@ var templatesFS embed.FS
 
 //go:embed static/*
 var staticFS embed.FS
+
+// devTemplatesGlob / devStaticDir — пути шаблонов и статики на диске (относительно
+// корня проекта) для dev-режима. В проде не используются — там всё из embed.
+const (
+	devTemplatesGlob = "internal/transport/web/templates/*.html"
+	devStaticDir     = "internal/transport/web/static"
+)
 
 // Config — транспортный конфиг (поведение, не бизнес-правила).
 type Config struct {
@@ -61,6 +69,23 @@ type Server struct {
 	settings *usecase.SettingsService
 	admin    *admin.Server // встроенная админка (nil → не смонтирована)
 	cfg      Config
+	dev      bool // dev-режим: шаблоны и статика читаются с диска (см. templates()/статику)
+}
+
+// templates возвращает набор шаблонов для рендера. В ПРОДЕ — вшитые в бинарь через
+// embed (распарсены один раз в NewServer). В DEV-режиме (ZV_DEV=1) — перечитывает
+// html-шаблоны с диска на КАЖДЫЙ рендер, чтобы правки вёрстки были видны сразу, без
+// пересборки бинаря (embed фиксирует содержимое на этапе компиляции). Если чтение с
+// диска не удалось (запуск из другого каталога) — молча откатываемся на вшитые.
+func (s *Server) templates() *template.Template {
+	if !s.dev {
+		return s.tmpl
+	}
+	t, err := template.ParseGlob(devTemplatesGlob)
+	if err != nil {
+		return s.tmpl
+	}
+	return t
 }
 
 // SetAdmin подключает встроенную админку. Её маршруты монтируются в Routes() под
@@ -76,7 +101,10 @@ func NewServer(notes *usecase.NoteService, auth *usecase.AuthService, settings *
 	if err != nil {
 		return nil, err
 	}
-	return &Server{tmpl: tmpl, notes: notes, auth: auth, settings: settings, cfg: cfg}, nil
+	// ZV_DEV=1 включает live-reload вёрстки (шаблоны/статика с диска). В проде НЕ
+	// ставится — приложение работает целиком из embed. См. templates() и Routes().
+	dev := os.Getenv("ZV_DEV") == "1"
+	return &Server{tmpl: tmpl, notes: notes, auth: auth, settings: settings, cfg: cfg, dev: dev}, nil
 }
 
 // Routes возвращает http.Handler со всеми маршрутами, обёрнутыми в loadUser.
@@ -102,7 +130,13 @@ func (s *Server) Routes() http.Handler {
 
 	// Служебное и статика.
 	mux.HandleFunc("GET /healthz", s.handleHealth)
-	mux.Handle("GET /static/", http.FileServerFS(staticFS))
+	// В проде статика (в т.ч. собранный app.css) — из embed. В dev-режиме отдаём с
+	// диска, чтобы пересобранный `make css` был виден без пересборки бинаря.
+	if s.dev {
+		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir(devStaticDir))))
+	} else {
+		mux.Handle("GET /static/", http.FileServerFS(staticFS))
+	}
 
 	// Публичная главная — лендинг «эталонный шаблон» (без авторизации).
 	mux.HandleFunc("GET /", s.handleLanding)
@@ -463,7 +497,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, "note", n); err != nil {
+	if err := s.templates().ExecuteTemplate(w, "note", n); err != nil {
 		s.fail(w, r, err)
 	}
 }
@@ -504,7 +538,7 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, data pageDat
 		data.User = currentUser(r)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.tmpl.ExecuteTemplate(w, "layout", data); err != nil {
+	if err := s.templates().ExecuteTemplate(w, "layout", data); err != nil {
 		http.Error(w, "внутренняя ошибка", http.StatusInternalServerError)
 	}
 }
