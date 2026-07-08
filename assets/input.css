@@ -7,21 +7,101 @@
  * tree-shaking, в итоговый CSS попадают лишь реально использованные классы и
  * компоненты DaisyUI (обычно 5–15 kB вместо всей библиотеки).
  *
- * Темы: светлая по умолчанию + тёмная по системной prefers-color-scheme. */
+ * Темы: garden по умолчанию (всегда, независимо от системной темы ОС). */
 @import "tailwindcss" source(none);
 @plugin "daisyui" {
 	/* Включены ВСЕ встроенные темы daisyUI. Пользователь выбирает тему
 	   переключателем в шапке (см. "theme-toggle" в layout.html); выбор
-	   сохраняется. По умолчанию (без явного выбора) — светлая, а на устройстве
-	   с тёмной системной темой — тёмная (--default / --prefersdark).
+	   сохраняется. По умолчанию (без явного выбора) — garden, ВСЕГДА, независимо
+	   от системной темы ОС. Метку --prefersdark намеренно НЕ ставим: иначе на
+	   устройстве с тёмной системной темой она перебивала бы дефолт (--default).
 	   Чтобы сделать дефолтной другую тему — перенеси метку --default на неё. */
-	themes: light --default, dark --prefersdark, cupcake, bumblebee, emerald,
-		corporate, synthwave, retro, cyberpunk, valentine, halloween, garden,
+	themes: garden --default, dark, light, cupcake, bumblebee, emerald,
+		corporate, synthwave, retro, cyberpunk, valentine, halloween,
 		forest, aqua, lofi, pastel, fantasy, wireframe, black, luxury, dracula,
 		cmyk, autumn, business, acid, lemonade, night, coffee, winter, dim,
 		nord, sunset, caramellatte, abyss, silk;
 }
 @source "../internal/transport/web/templates";
+
+/* Шрифты приложения — ЛОКАЛЬНЫЕ (в static/fonts, отдаются с нашего домена, БЕЗ
+ * CDN: Google Fonts недоступны из РФ, как и любой внешний хост). Оба под OFL.
+ *   - Onest — основной текст: современный геометрично-гуманистический гротеск,
+ *     отличная кириллица. Веса 400/500/600.
+ *   - Unbounded — ТОЛЬКО заголовки: выразительный дисплейный гротеск, чтобы
+ *     заголовки выделялись и лендинг не выглядел «системным». Вес 700.
+ * Разбиты на cyrillic/latin сабсеты (unicode-range) — браузер грузит нужный,
+ * общий вес ~110 kB. font-display: swap — текст виден сразу системным, затем
+ * подменяется (без пустого экрана). Файлы вшиваются в бинарь через embed. */
+@font-face {
+	font-family: "Onest"; font-style: normal; font-weight: 400; font-display: swap;
+	src: url("/static/fonts/onest-400.woff2") format("woff2");
+	unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+	font-family: "Onest"; font-style: normal; font-weight: 400; font-display: swap;
+	src: url("/static/fonts/onest-latin-400.woff2") format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+FEFF;
+}
+@font-face {
+	font-family: "Onest"; font-style: normal; font-weight: 500; font-display: swap;
+	src: url("/static/fonts/onest-500.woff2") format("woff2");
+	unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+	font-family: "Onest"; font-style: normal; font-weight: 500; font-display: swap;
+	src: url("/static/fonts/onest-latin-500.woff2") format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+FEFF;
+}
+@font-face {
+	font-family: "Onest"; font-style: normal; font-weight: 600; font-display: swap;
+	src: url("/static/fonts/onest-600.woff2") format("woff2");
+	unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+	font-family: "Onest"; font-style: normal; font-weight: 600; font-display: swap;
+	src: url("/static/fonts/onest-latin-600.woff2") format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+FEFF;
+}
+@font-face {
+	font-family: "Unbounded"; font-style: normal; font-weight: 700; font-display: swap;
+	src: url("/static/fonts/unbounded-700.woff2") format("woff2");
+	unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+	font-family: "Unbounded"; font-style: normal; font-weight: 700; font-display: swap;
+	src: url("/static/fonts/unbounded-latin-700.woff2") format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+FEFF;
+}
+
+/* Onest — основной шрифт всего приложения. Переопределяем Tailwind-переменную
+ * --font-sans (её использует DaisyUI и утилиты font-sans) → системный стек как
+ * фолбэк, пока Onest грузится / если не загрузился. */
+@theme {
+	--font-sans: "Onest", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Утилита для заголовков: Unbounded. Вешай class="font-display" на h1/крупные
+ * заголовки лендинга, чтобы они выделялись. Обычный текст остаётся на Onest. */
+@utility font-display {
+	font-family: "Unbounded", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Скругления по умолчанию (темы light/dark) — мягче, чем дефолт DaisyUI (кнопки/
+ * поля были почти квадратные, --radius-field:.25rem). Крутим три переменные тем:
+ *   --radius-field    — кнопки, инпуты, бейджи, вкладки
+ *   --radius-box      — карточки, модалки, крупные блоки
+ *   --radius-selector — чекбоксы, тогглы, мелкие контролы
+ * Только для дефолтных тем — остальные 33 темы сохраняют свой характер. Светлая
+ * идёт и в :root (когда data-theme не выставлен, работает prefers-color-scheme). */
+:root,
+[data-theme="garden"],
+[data-theme="light"],
+[data-theme="dark"] {
+	--radius-field: 0.65rem;
+	--radius-box: 1rem;
+	--radius-selector: 0.75rem;
+}
 
 /* Плавность hx-boost / htmx-подмен: лёгкое затухание заменяемого контента, чтобы
  * SPA-навигация и подмены фрагментов не «моргали». htmx на время свопа вешает

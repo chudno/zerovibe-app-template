@@ -73,21 +73,22 @@ func TestSettings_WrongBool_Validation(t *testing.T) {
 
 func TestSettings_DefaultsWhenUnset(t *testing.T) {
 	svc := NewSettingsService(newFakeSettingRepo())
-	// allow_signup по умолчанию false
+	// allow_signup по умолчанию true (эталон: регистрация открыта из коробки, чтобы
+	// демо работало сразу; вайбкодер закрывает её в настройках при необходимости).
 	b, err := svc.Bool(context.Background(), "allow_signup")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b {
-		t.Error("allow_signup по умолчанию должен быть false")
+	if !b {
+		t.Error("allow_signup по умолчанию должен быть true")
 	}
-	// app_name по умолчанию ""
+	// app_name по умолчанию "Zerovibe" (плейсхолдер эталона; агент/вайбкодер меняет).
 	s, err := svc.String(context.Background(), "app_name")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s != "" {
-		t.Errorf("app_name по умолчанию должен быть пустым, получено %q", s)
+	if s != "Zerovibe" {
+		t.Errorf("app_name по умолчанию должен быть %q, получено %q", "Zerovibe", s)
 	}
 }
 

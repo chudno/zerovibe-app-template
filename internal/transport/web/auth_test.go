@@ -78,8 +78,21 @@ func TestLandingPublicForAnonymous(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("гость на / (лендинг) должен получить 200, получен %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "Эталонный шаблон") {
-		t.Error("лендинг должен содержать бейдж «Эталонный шаблон»")
+	body := rec.Body.String()
+	// Лендинг гостя ведёт к регистрации (главное действие) и несёт шапку/подвал.
+	if !strings.Contains(body, `href="/register"`) {
+		t.Error("лендинг должен вести на регистрацию (href=/register)")
+	}
+	if !strings.Contains(body, "<footer") || !strings.Contains(body, "<header") {
+		t.Error("лендинг должен содержать шапку и подвал")
+	}
+	// Техничка (стек) не должна протекать конечному пользователю. Бренд Zerovibe
+	// на витрине САМОЙ платформы уместен (логотип, демо-домен project.zerovibe.app),
+	// поэтому его в стоп-листе нет — сюда попадают только детали реализации.
+	for _, leak := range []string{"DaisyUI", "HTMX", "SQLite", "Эталонный шаблон"} {
+		if strings.Contains(body, leak) {
+			t.Errorf("лендинг не должен содержать техничку: %q", leak)
+		}
 	}
 }
 

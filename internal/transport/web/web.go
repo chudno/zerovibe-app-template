@@ -47,8 +47,15 @@ type Config struct {
 	CookieName   string // имя cookie сессии (напр. "zv_session")
 }
 
+// appName — название приложения для логотипа шапки/подвала и заголовка вкладки.
+// Плейсхолдер эталона: агент задаёт его под конкретный продукт вайбкодера (замени
+// строку здесь). Отдельно от pageData.Title (тот — заголовок КОНКРЕТНОЙ страницы,
+// напр. «Вход»), чтобы в логотипе всегда было имя приложения, а не «Вход».
+const appName = "Zerovibe"
+
 // pageData — данные для рендера страниц. Page выбирает, какой content показать.
 type pageData struct {
+	AppName     string // имя приложения (логотип/подвал); проставляется в renderPage
 	Title       string
 	Page        string // "landing" | "notes" | "login" | "register" | "forgot" | "reset" | "settings"
 	User        *domain.User
@@ -251,7 +258,7 @@ func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.renderPage(w, r, pageData{Title: "Эталонный шаблон", Page: "landing", User: currentUser(r)})
+	s.renderPage(w, r, pageData{Page: "landing", User: currentUser(r)})
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -536,6 +543,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, data pageData) {
 	if data.User == nil {
 		data.User = currentUser(r)
+	}
+	// Название приложения — из настройки app_name (её вайбкодер меняет в админке
+	// без правки кода). Пусто/ошибка → константа appName как фолбэк.
+	data.AppName = appName
+	if s.settings != nil {
+		if name, err := s.settings.String(r.Context(), "app_name"); err == nil && name != "" {
+			data.AppName = name
+		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates().ExecuteTemplate(w, "layout", data); err != nil {

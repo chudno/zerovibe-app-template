@@ -27,6 +27,7 @@ Using daisyUI class names | [./usage/SKILL.md](./usage/SKILL.md) | MANDATORY. Re
 Configuring daisyUI | [./config/SKILL.md](./config/SKILL.md) | Use this if you need to configure daisyUI themes, prefix, logs, or other options. Not required for basic usage but important for advanced customization.
 daisyUI colors and themes | [./colors/SKILL.md](./colors/SKILL.md) | MANDATORY. Read this to understand daisyUI color usage rules and how to use daisyUI colors in the code.
 daisyUI components | [./components/](./components/) | MANDATORY. Read the relevant component docs when using daisyUI components in the code. Always read multiple candidate component docs before deciding which one to use.
+Taste & composition (avoid AI-generated look) | skill `aesthetics` | Этот скилл — про КЛАССЫ; `aesthetics` — про РЕШЕНИЯ (иерархия, один акцент, стоп-лист AI-slop). Читай `aesthetics` при вёрстке любого экрана, чтобы результат не выглядел «сделано нейросетью».
 
 ## List of components
 

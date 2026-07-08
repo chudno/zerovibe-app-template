@@ -3,7 +3,9 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>{{.Title}} · zerovibe</title>
+	<!-- Заголовок вкладки: «Страница · Приложение». AppName — имя приложения,
+	     Title — конкретная страница. На лендинге Title пуст → только имя. -->
+	<title>{{if .Title}}{{.Title}} · {{end}}{{if .AppName}}{{.AppName}}{{else}}Приложение{{end}}</title>
 
 	<!-- Стили приложения — Tailwind CSS + DaisyUI, собраны в static/app.css
 	     (см. assets/input.css, `make css`). Локальная статика, без CDN. Верстай
@@ -71,31 +73,21 @@
 	<!-- Лендинг — полноэкранный, без стандартной шапки. -->
 	{{template "landing" .}}
 	{{else}}
-	<div class="navbar border-b border-base-300 bg-base-100 px-4 md:px-8">
-		<div class="flex-1">
-			<span class="text-lg font-semibold">{{.Title}}</span>
-		</div>
-		<div class="flex flex-none items-center gap-3">
-			{{if .User}}
-			<span class="hidden text-sm text-base-content/60 sm:inline">{{.User.Email}}</span>
-			{{if eq .User.Role "admin"}}<a class="link link-hover text-sm" href="/admin/settings">Настройки</a>{{end}}
-			<form method="post" action="/logout">
-				<button class="btn btn-ghost btn-sm" type="submit">Выйти</button>
-			</form>
-			{{end}}
-			{{template "theme-toggle" .}}
-		</div>
+	<!-- Внутренние страницы и страницы входа: та же шапка сайта (логотип-ссылка на
+	     главную → возврат откуда угодно). Футер прижат книзу через flex-колонку. -->
+	<div class="flex min-h-screen flex-col">
+		{{template "site-header" .}}
+		<main class="mx-auto w-full max-w-3xl flex-1 px-4 py-10 md:px-8">
+			{{if eq .Page "login"}}{{template "login" .}}
+			{{else if eq .Page "register"}}{{template "register" .}}
+			{{else if eq .Page "forgot"}}{{template "forgot" .}}
+			{{else if eq .Page "reset"}}{{template "reset" .}}
+			{{else if eq .Page "verify"}}{{template "verify" .}}
+			{{else if eq .Page "settings"}}{{template "settings" .}}
+			{{else}}{{template "content" .}}{{end}}
+		</main>
+		{{template "site-footer" .}}
 	</div>
-
-	<main class="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
-		{{if eq .Page "login"}}{{template "login" .}}
-		{{else if eq .Page "register"}}{{template "register" .}}
-		{{else if eq .Page "forgot"}}{{template "forgot" .}}
-		{{else if eq .Page "reset"}}{{template "reset" .}}
-		{{else if eq .Page "verify"}}{{template "verify" .}}
-		{{else if eq .Page "settings"}}{{template "settings" .}}
-		{{else}}{{template "content" .}}{{end}}
-	</main>
 	{{end}}
 </body>
 </html>{{end}}
@@ -535,4 +527,55 @@
 			</li>
 	</ul>
 </details>
+{{end}}
+
+<!-- Шапка сайта: логотип-ссылка на главную (возврат с любой страницы), навигация
+     и вход/регистрация для гостя (или профиль для вошедшего) + переключатель тем.
+     Общая для лендинга и страниц входа — поэтому с login/forgot/reset всегда можно
+     вернуться на главную. Логотип = название приложения ({{.Title}}), агент задаёт
+     его под конкретный продукт. Без упоминания технологий/стека. -->
+{{define "site-header"}}
+<header class="sticky top-0 z-30 border-b border-base-300 bg-base-100/80 backdrop-blur">
+	<div class="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-3 lg:px-8">
+		<!-- Логотип: значок в плашке акцентного цвета + название приложения.
+		     Иконка — inline SVG (локально, без CDN). Агент может заменить её на
+		     реальный логотип продукта. Название — из настройки app_name (.AppName). -->
+		<a href="/" class="flex items-center gap-2.5 text-lg font-bold tracking-tight">
+			<span class="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-content">
+<svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+					<!-- Значок электричества (молния, Lucide zap): цельная фигура,
+					     чисто читается даже на мелком размере логотипа. -->
+					<path d="M13 2 3 14h7l-1 8 10-12h-7z" />
+				</svg>
+			</span>
+			<span>{{if .AppName}}{{.AppName}}{{else}}Zerovibe{{end}}</span>
+		</a>
+		<div class="flex-1"></div>
+		<nav class="flex items-center gap-2">
+			{{if .User}}
+			<span class="hidden text-sm text-base-content/60 sm:inline">{{.User.Email}}</span>
+			{{if eq .User.Role "admin"}}<a class="btn btn-ghost btn-sm" href="/admin">Админка</a>{{end}}
+			<form method="post" action="/logout"><button class="btn btn-ghost btn-sm" type="submit">Выйти</button></form>
+			{{else}}
+			<a class="btn btn-ghost btn-sm" href="/login">Войти</a>
+			<a class="btn btn-primary btn-sm" href="/register">Регистрация</a>
+			{{end}}
+			{{template "theme-toggle" .}}
+		</nav>
+	</div>
+</header>
+{{end}}
+
+<!-- Подвал сайта: логотип, минимум ссылок. Без технической информации. Ссылки —
+     плейсхолдеры под продукт. -->
+{{define "site-footer"}}
+<footer class="border-t border-base-300 bg-base-200/40">
+	<div class="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-6 py-8 text-sm text-base-content/60 sm:flex-row sm:justify-between lg:px-8">
+		<span class="font-semibold text-base-content">{{if .AppName}}{{.AppName}}{{else}}Приложение{{end}}</span>
+		<nav class="flex items-center gap-5">
+			<a href="/login" class="link link-hover">Войти</a>
+			<a href="/register" class="link link-hover">Регистрация</a>
+		</nav>
+	</div>
+</footer>
 {{end}}

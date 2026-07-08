@@ -65,8 +65,12 @@ func buildStackWithMailer(t *testing.T, allowSignup bool) (http.Handler, *usecas
 		t.Fatalf("миграции: %v", err)
 	}
 	settings := usecase.NewSettingsService(sqlite.NewSettingRepo(database))
+	// Явно выставляем allow_signup под тест (не полагаемся на дефолт реестра — он
+	// теперь true, поэтому «закрытую» регистрацию нужно ставить явно false).
 	if allowSignup {
 		_ = settings.Set(context.Background(), "allow_signup", "true")
+	} else {
+		_ = settings.Set(context.Background(), "allow_signup", "false")
 	}
 	notes := usecase.NewNoteService(sqlite.NewNoteRepo(database))
 	auth := usecase.NewAuthService(
@@ -107,10 +111,14 @@ func buildStack(t *testing.T, allowSignup bool) (http.Handler, *usecase.AuthServ
 	}
 
 	settings := usecase.NewSettingsService(sqlite.NewSettingRepo(database))
+	// Явно ставим allow_signup под тест: дефолт реестра теперь true, поэтому
+	// «закрытую» регистрацию для тестов надо выставлять явно false.
+	val := "false"
 	if allowSignup {
-		if err := settings.Set(context.Background(), "allow_signup", "true"); err != nil {
-			t.Fatalf("настройка allow_signup: %v", err)
-		}
+		val = "true"
+	}
+	if err := settings.Set(context.Background(), "allow_signup", val); err != nil {
+		t.Fatalf("настройка allow_signup: %v", err)
 	}
 	notes := usecase.NewNoteService(sqlite.NewNoteRepo(database))
 	auth := usecase.NewAuthService(

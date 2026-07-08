@@ -41,9 +41,9 @@ type SettingDef struct {
 // settingRegistry — реестр всех доступных настроек приложения. Новая настройка
 // добавляется сюда (и больше нигде) — после этого её можно задавать через API.
 var settingRegistry = []SettingDef{
-	{Key: "allow_signup", Kind: SettingConfig, Type: SettingBool, Default: "false", Title: "Открытая регистрация"},
+	{Key: "allow_signup", Kind: SettingConfig, Type: SettingBool, Default: "true", Title: "Открытая регистрация"},
 	{Key: "require_email_verification", Kind: SettingConfig, Type: SettingBool, Default: "false", Title: "Требовать подтверждение почты"},
-	{Key: "app_name", Kind: SettingConfig, Type: SettingString, Default: "", Title: "Название приложения"},
+	{Key: "app_name", Kind: SettingConfig, Type: SettingString, Default: "Zerovibe", Title: "Название приложения"},
 }
 
 // SettingDefs возвращает копию реестра (для перечисления в API/UI).

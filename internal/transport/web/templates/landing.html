@@ -1,56 +1,269 @@
 {{define "landing"}}
-<div class="relative min-h-screen bg-base-100 text-base-content">
-	<div class="absolute right-4 top-4 z-10 md:right-8 md:top-6">
-		{{template "theme-toggle" .}}
-	</div>
-	<section class="hero py-20">
-		<div class="hero-content text-center">
-			<div class="max-w-2xl">
-				<span class="badge badge-outline badge-lg mb-5">Эталонный шаблон</span>
-				<h1 class="text-4xl font-bold tracking-tight sm:text-5xl">Стартовый шаблон приложения</h1>
-				<p class="mx-auto mt-5 max-w-xl text-lg text-base-content/70">
-					Готовая основа: аутентификация, роли, встроенная админка и опрятный
-					интерфейс на DaisyUI — без перезагрузок страниц. Опишите, что нужно, —
-					и приложение вырастет отсюда.
-				</p>
-				<div class="mt-8 flex flex-wrap justify-center gap-3">
-					{{if .User}}
-					<a class="btn btn-primary" href="/notes">Мои заметки</a>
-					{{if eq .User.Role "admin"}}<a class="btn btn-outline" href="/admin">Админка</a>{{end}}
-					{{else}}
-					<a class="btn btn-primary" href="/login">Войти</a>
-					<a class="btn btn-outline" href="/register">Регистрация</a>
-					{{end}}
+<div class="flex min-h-screen flex-col bg-base-100 text-base-content">
+	{{template "site-header" .}}
+
+	<main class="flex-1">
+		<!-- Hero: продаёт САМ шаблон. Техника — словами выгоды (не «Go/HTMX», а
+		     «быстро, надёжно, готово из коробки»). Один акцент (primary на главное
+		     действие), крупный заголовок с воздухом, выравнивание по левому краю. -->
+		<section class="mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-8">
+			<div class="grid items-center gap-12 lg:grid-cols-2">
+				<div class="max-w-xl">
+					<h1 class="font-display text-4xl font-bold leading-tight tracking-tight text-balance sm:text-5xl lg:text-6xl">
+						Всё, что нужно приложению, — уже здесь
+					</h1>
+					<p class="mt-6 text-lg text-base-content/70">
+						Вход, регистрация, личные кабинеты, панель управления и опрятный
+						интерфейс работают из коробки. Не нужно собирать это заново — начните
+						сразу с того, что делает ваш продукт особенным.
+					</p>
+					<div class="mt-10 flex flex-wrap items-center gap-4">
+						{{if .User}}
+						<a class="btn btn-primary btn-lg" href="/">Открыть приложение</a>
+						{{else}}
+						<a class="btn btn-primary btn-lg" href="/register">Попробовать бесплатно</a>
+						<a class="btn btn-ghost btn-lg" href="/login">Войти</a>
+						{{end}}
+					</div>
+				</div>
+
+<!-- Сигнатурный визуал: живая «панель данных» приложения — намёк на бэкофис
+				     из коробки (аккаунты, таблица записей, мгновенный отклик, темы), а не
+				     стоковая иллюстрация. Анимация — чистый CSS, с prefers-reduced-motion. -->
+				<div class="relative">
+					<style>
+						@keyframes zvPanelIn {
+							from { opacity: 0; transform: translateY(18px); }
+							to   { opacity: 1; transform: translateY(0); }
+						}
+						@keyframes zvRise {
+							from { opacity: 0; transform: translateY(10px); }
+							to   { opacity: 1; transform: translateY(0); }
+						}
+						@keyframes zvRowGlow {
+							0%   { background-color: transparent; }
+							12%  { background-color: color-mix(in oklch, var(--color-primary) 12%, transparent); }
+							55%  { background-color: color-mix(in oklch, var(--color-primary) 12%, transparent); }
+							100% { background-color: transparent; }
+						}
+						@keyframes zvRowMark {
+							0%, 62% { opacity: 1; transform: scale(1); }
+							100%    { opacity: 0; transform: scale(0.4); }
+						}
+						@keyframes zvPulse {
+							0%, 100% { opacity: 1; transform: scale(1); }
+							50%      { opacity: 0.4; transform: scale(0.7); }
+						}
+						@keyframes zvRing {
+							0%        { opacity: 0.5; transform: scale(1); }
+							70%, 100% { opacity: 0; transform: scale(2.6); }
+						}
+						.zv-panel   { animation: zvPanelIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+						.zv-rise    { animation: zvRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+						.zv-d1 { animation-delay: 0.30s; }
+						.zv-d2 { animation-delay: 0.40s; }
+						.zv-d3 { animation-delay: 0.50s; }
+						.zv-d4 { animation-delay: 0.60s; }
+						.zv-row-live { animation: zvRowGlow 4.6s ease-in-out infinite; }
+						.zv-row-mark { animation: zvRowMark 4.6s ease-in-out infinite; }
+						.zv-dot  { animation: zvPulse 2.2s ease-in-out infinite; }
+						.zv-ring { animation: zvRing 2.2s ease-out infinite; }
+
+						@media (prefers-reduced-motion: reduce) {
+							.zv-panel, .zv-rise, .zv-row-live, .zv-row-mark, .zv-dot, .zv-ring {
+								animation: none !important;
+							}
+							.zv-rise { opacity: 1; transform: none; }
+						}
+					</style>
+
+					<!-- мягкое акцентное свечение за панелью -->
+					<div aria-hidden="true"
+					     class="pointer-events-none absolute -inset-6 -z-10 rounded-[2rem] bg-primary/10 blur-3xl"></div>
+
+					<div class="zv-panel overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-xl shadow-base-300/40">
+
+						<!-- окно: кружки + адрес + кластер аккаунта -->
+						<div class="flex items-center gap-3 border-b border-base-300 bg-base-200/60 px-4 py-3">
+							<div class="flex shrink-0 items-center gap-1.5">
+								<span class="size-2.5 rounded-full bg-base-300"></span>
+								<span class="size-2.5 rounded-full bg-base-300"></span>
+								<span class="size-2.5 rounded-full bg-base-300"></span>
+							</div>
+
+							<div class="ml-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-base-300 bg-base-100 px-2.5 py-1">
+								<svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0 text-base-content/40" viewBox="0 0 24 24"
+								     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+								</svg>
+<span class="truncate font-mono text-xs text-base-content/50">project.zerovibe.app</span>
+							</div>
+
+							<!-- кластер аккаунта: пульс «онлайн» + аватар (аккаунты из коробки) -->
+							<div class="flex shrink-0 items-center gap-2">
+								<span class="relative flex size-2">
+									<span class="zv-ring absolute inline-flex size-2 rounded-full bg-primary"></span>
+									<span class="zv-dot relative inline-flex size-2 rounded-full bg-primary"></span>
+								</span>
+								<span class="grid size-6 place-items-center rounded-full bg-primary/15 text-[0.65rem] font-semibold text-primary">АК</span>
+							</div>
+						</div>
+
+<!-- шапка раздела: заголовок + чип выгоды + счётчик записей -->
+						<div class="flex items-center justify-between gap-3 px-5 pt-4 pb-2">
+							<div class="flex min-w-0 items-center gap-2">
+								<h3 class="text-sm font-semibold text-base-content">Клиенты</h3>
+								<span class="hidden items-center gap-1 rounded-full border border-base-300 bg-base-200/70 px-2 py-0.5 text-[0.65rem] font-medium text-base-content/60 sm:inline-flex">
+									<svg xmlns="http://www.w3.org/2000/svg" class="size-3 shrink-0 text-primary" viewBox="0 0 24 24"
+									     fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+										<path d="m9 12 2 2 4-4"/>
+									</svg>
+									из коробки
+								</span>
+							</div>
+							<p class="shrink-0 text-xs text-base-content/50">
+								<span class="font-semibold text-base-content tabular-nums">1&nbsp;285</span>
+								записей
+							</p>
+						</div>
+
+						<!-- таблица -->
+						<div class="px-2 pb-2">
+							<div class="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-3 pb-2 text-[0.7rem] font-medium uppercase tracking-wide text-base-content/40">
+								<span>Клиент</span>
+								<span class="text-right">Статус</span>
+								<span class="text-right">Сумма</span>
+							</div>
+
+							<ul class="space-y-0.5 text-sm">
+								<li class="zv-rise zv-d1 grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-lg px-3 py-2.5">
+									<div class="flex min-w-0 items-center gap-2.5">
+										<span class="grid size-7 shrink-0 place-items-center rounded-full bg-base-200 text-xs font-semibold text-base-content/70">АК</span>
+										<span class="truncate text-base-content">Анна Ковалёва</span>
+									</div>
+									<span class="badge badge-sm badge-success badge-soft">Активен</span>
+									<span class="text-right font-medium tabular-nums text-base-content">₽ 48 200</span>
+								</li>
+
+								<!-- строка «только что обновлена» -->
+								<li class="zv-rise zv-d2 zv-row-live grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-lg px-3 py-2.5 ring-1 ring-inset ring-primary/20">
+									<div class="flex min-w-0 items-center gap-2.5">
+										<span class="grid size-7 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">ДМ</span>
+										<span class="truncate font-medium text-base-content">Дмитрий Марков</span>
+										<span class="zv-row-mark hidden items-center rounded-full bg-primary px-1.5 py-0.5 text-[0.6rem] font-semibold leading-none text-primary-content sm:inline-flex">
+											обновлено
+										</span>
+									</div>
+									<span class="badge badge-sm badge-warning badge-soft">В работе</span>
+									<span class="text-right font-semibold tabular-nums text-base-content">₽ 12 900</span>
+								</li>
+
+								<li class="zv-rise zv-d3 grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-lg px-3 py-2.5">
+									<div class="flex min-w-0 items-center gap-2.5">
+										<span class="grid size-7 shrink-0 place-items-center rounded-full bg-base-200 text-xs font-semibold text-base-content/70">ЕС</span>
+										<span class="truncate text-base-content">Елена Соколова</span>
+									</div>
+									<span class="badge badge-sm badge-ghost">Черновик</span>
+									<span class="text-right font-medium tabular-nums text-base-content">₽ 5 400</span>
+								</li>
+
+								<li class="zv-rise zv-d4 grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-lg px-3 py-2.5">
+									<div class="flex min-w-0 items-center gap-2.5">
+										<span class="grid size-7 shrink-0 place-items-center rounded-full bg-base-200 text-xs font-semibold text-base-content/70">ПН</span>
+										<span class="truncate text-base-content">Павел Новиков</span>
+									</div>
+									<span class="badge badge-sm badge-success badge-soft">Активен</span>
+									<span class="text-right font-medium tabular-nums text-base-content">₽ 91 750</span>
+								</li>
+							</ul>
+						</div>
+					</div>
 				</div>
 			</div>
-		</div>
-	</section>
+		</section>
 
-	<section class="mx-auto grid max-w-4xl gap-4 px-4 pb-20 sm:grid-cols-2">
-		<div class="card border border-base-300 bg-base-100">
-			<div class="card-body">
-				<h3 class="card-title text-base">Аутентификация из коробки</h3>
-				<p class="text-sm text-base-content/70">Вход, регистрация, подтверждение почты и восстановление пароля, роли пользователя и админа.</p>
+		<!-- Преимущества шаблона. НЕ три одинаковые карточки-близнецы: крупное
+		     утверждение слева + список выгод справа (ритм, не сетка). Каждая выгода —
+		     на языке пользы, техника скрыта. -->
+		<section class="border-t border-base-300 bg-base-200/40">
+			<div class="mx-auto w-full max-w-6xl px-6 py-20 lg:px-8">
+				<div class="grid gap-12 lg:grid-cols-[1fr_1.4fr]">
+					<div>
+						<h2 class="font-display text-3xl font-bold tracking-tight text-balance">
+							Крепкий фундамент, а не пустой лист
+						</h2>
+						<p class="mt-4 text-base-content/70">
+							Скучное и обязательное уже сделано и проверено. Остаётся приятная
+							часть — собрать то, ради чего приложение и создаётся.
+						</p>
+					</div>
+					<div class="grid gap-x-10 gap-y-8 sm:grid-cols-2">
+						<div>
+							<h3 class="font-semibold">Аккаунты из коробки</h3>
+							<p class="mt-1.5 text-sm text-base-content/70">
+								Вход, регистрация, восстановление пароля, подтверждение почты и
+								роли — готово и безопасно, ничего не надо настраивать.
+							</p>
+						</div>
+						<div>
+							<h3 class="font-semibold">Панель управления данными</h3>
+							<p class="mt-1.5 text-sm text-base-content/70">
+								Удобный бэкофис для ваших записей — список, форма, поиск и
+								фильтры появляются для каждого раздела автоматически.
+							</p>
+						</div>
+						<div>
+							<h3 class="font-semibold">Мгновенный отклик</h3>
+							<p class="mt-1.5 text-sm text-base-content/70">
+								Страницы не перезагружаются и не мигают — приложение
+								откликается сразу, как хорошее настольное.
+							</p>
+						</div>
+						<div>
+							<h3 class="font-semibold">Оформление на любой вкус</h3>
+							<p class="mt-1.5 text-sm text-base-content/70">
+								Десятки готовых тем — светлые, тёмные, яркие. Переключаются в
+								один клик, приложение подстраивается целиком.
+							</p>
+						</div>
+						<div>
+							<h3 class="font-semibold">Супербыстрое и выносливое</h3>
+							<p class="mt-1.5 text-sm text-base-content/70">
+								Работает быстро и держит нагрузку — от первых пользователей до
+								наплыва, без переделок под ростом.
+							</p>
+						</div>
+						<div>
+							<h3 class="font-semibold">Растёт вместе с идеей</h3>
+							<p class="mt-1.5 text-sm text-base-content/70">
+								Добавить новый раздел — дело минут. Основа устроена так, чтобы
+								приложение развивалось, не спотыкаясь.
+							</p>
+						</div>
+					</div>
+				</div>
 			</div>
-		</div>
-		<div class="card border border-base-300 bg-base-100">
-			<div class="card-body">
-				<h3 class="card-title text-base">Встроенная админка</h3>
-				<p class="text-sm text-base-content/70">Бэкофис для ваших данных: список, форма, поиск и фильтры — по каждой сущности автоматически.</p>
+		</section>
+
+		<!-- Финальный призыв: одно действие, крупно, осознанный центр. -->
+		<section class="mx-auto w-full max-w-3xl px-6 py-20 text-center lg:px-8">
+			<h2 class="font-display text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+				Начните с готового — доведите до своего
+			</h2>
+			<p class="mx-auto mt-4 max-w-md text-base-content/70">
+				Создайте аккаунт за минуту и посмотрите, как это работает.
+			</p>
+			<div class="mt-8">
+				{{if .User}}
+				<a class="btn btn-primary btn-lg" href="/">Открыть приложение</a>
+				{{else}}
+				<a class="btn btn-primary btn-lg" href="/register">Создать аккаунт</a>
+				{{end}}
 			</div>
-		</div>
-		<div class="card border border-base-300 bg-base-100">
-			<div class="card-body">
-				<h3 class="card-title text-base">Интерфейс как SPA</h3>
-				<p class="text-sm text-base-content/70">HTMX подменяет только нужные фрагменты — страницы не перезагружаются и не мигают.</p>
-			</div>
-		</div>
-		<div class="card border border-base-300 bg-base-100">
-			<div class="card-body">
-				<h3 class="card-title text-base">Чистый стек</h3>
-				<p class="text-sm text-base-content/70">Go + HTMX + SQLite + DaisyUI, чистая архитектура, тесты. Без Node — CSS собирается standalone-бинарём.</p>
-			</div>
-		</div>
-	</section>
+		</section>
+	</main>
+
+	{{template "site-footer" .}}
 </div>
 {{end}}
