@@ -45,6 +45,11 @@ const (
 type Config struct {
 	SecureCookie bool   // ставить ли cookie с флагом Secure (true за TLS-edge; локально false)
 	CookieName   string // имя cookie сессии (напр. "zv_session")
+	// PreviewMode — приложение открыто в live-превью платформы (внутри cross-site
+	// iframe по https). Тогда сессионная cookie ставится SameSite=None; Secure,
+	// иначе браузер не сохранит её во фрейме и вход не удержится. В обычном
+	// (задеплоенном) режиме — false, cookie остаётся SameSite=Lax (CSRF-защита).
+	PreviewMode bool
 }
 
 // appName — название приложения для логотипа шапки/подвала и заголовка вкладки.
@@ -638,8 +643,14 @@ func errText(err error) string {
 // межсайтовых POST-запросах, что закрывает классический CSRF на мутации. Отдельных
 // CSRF-токенов нет: для приложения такого класса (формы того же origin, Lax-cookie)
 // это осознанное упрощение. Если понадобится строже — добавить токен в формы.
+//
+// Исключение — live-превью платформы (PreviewMode): приложение открыто в cross-site
+// iframe по https, куда Lax-cookie браузер не пускает. Тогда ставим SameSite=None;
+// Secure — единственный способ удержать сессию во фрейме (после регистрации/входа).
+// Ослабление CSRF здесь приемлемо: превью — эфемерная песочница, доступная только
+// владельцу через подписанный доступ платформы, не публичный прод.
 func (s *Server) setSessionCookie(w http.ResponseWriter, sess domain.Session) {
-	http.SetCookie(w, &http.Cookie{
+	c := &http.Cookie{
 		Name:     s.cfg.CookieName,
 		Value:    sess.Token,
 		Path:     "/",
@@ -647,11 +658,13 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, sess domain.Session) {
 		Secure:   s.cfg.SecureCookie,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  sess.ExpiresAt,
-	})
+	}
+	s.applyCookieSiteMode(c)
+	http.SetCookie(w, c)
 }
 
 func (s *Server) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+	c := &http.Cookie{
 		Name:     s.cfg.CookieName,
 		Value:    "",
 		Path:     "/",
@@ -659,7 +672,19 @@ func (s *Server) clearSessionCookie(w http.ResponseWriter) {
 		Secure:   s.cfg.SecureCookie,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
-	})
+	}
+	s.applyCookieSiteMode(c)
+	http.SetCookie(w, c)
+}
+
+// applyCookieSiteMode в режиме превью переключает cookie на SameSite=None; Secure
+// (нужно для cross-site iframe). SameSite=None без Secure браузер отвергает, поэтому
+// Secure выставляется принудительно — превью всегда за https-edge платформы.
+func (s *Server) applyCookieSiteMode(c *http.Cookie) {
+	if s.cfg.PreviewMode {
+		c.SameSite = http.SameSiteNoneMode
+		c.Secure = true
+	}
 }
 
 // redirect делает навигацию: для htmx — заголовком HX-Redirect, иначе 303.

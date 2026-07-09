@@ -144,6 +144,42 @@ func buildStack(t *testing.T, allowSignup bool) (http.Handler, *usecase.AuthServ
 	return srv.Routes(), auth, settings
 }
 
+// buildStackPreview собирает стек в режиме превью (PreviewMode=true) — для проверки
+// атрибутов сессионной cookie в cross-site iframe (SameSite=None; Secure).
+func buildStackPreview(t *testing.T) (http.Handler, *usecase.AuthService) {
+	t.Helper()
+	dsn := "file:" + filepath.Join(t.TempDir(), "test.db")
+	database, err := db.Open(dsn)
+	if err != nil {
+		t.Fatalf("открыть БД: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	if err := database.MigrateUp(context.Background()); err != nil {
+		t.Fatalf("миграции: %v", err)
+	}
+	settings := usecase.NewSettingsService(sqlite.NewSettingRepo(database))
+	notes := usecase.NewNoteService(sqlite.NewNoteRepo(database))
+	auth := usecase.NewAuthService(
+		sqlite.NewUserRepo(database), sqlite.NewSessionRepo(database),
+		sqlite.NewResetRepo(database), sqlite.NewEmailVerificationRepo(database), sqlite.NewRateLimitRepo(database),
+		usecase.NewBcryptHasher(), noMailer{}, settings,
+		usecase.AuthConfig{
+			SessionTTL: time.Hour, ResetTTL: time.Hour, VerifyTTL: 24 * time.Hour,
+			AppBaseURL:      "http://localhost",
+			LoginRateLimit:  usecase.RateRule{Limit: 5, Window: 15 * time.Minute},
+			ForgotRateLimit: usecase.RateRule{Limit: 3, Window: time.Hour},
+			ResendShortRate: usecase.RateRule{Limit: 1, Window: time.Minute},
+			ResendHourRate:  usecase.RateRule{Limit: 5, Window: time.Hour},
+			SetupToken:      testSetupToken,
+		},
+	)
+	srv, err := NewServer(notes, auth, settings, Config{SecureCookie: false, CookieName: "zv_session", PreviewMode: true})
+	if err != nil {
+		t.Fatalf("сервер: %v", err)
+	}
+	return srv.Routes(), auth
+}
+
 // seedAdminAndLogin создаёт первого админа (через первичную настройку по тестовому
 // коду) и возвращает cookie его сессии. Идёт тем же путём, что и прод — /setup.
 func seedAdminAndLogin(t *testing.T, h http.Handler, auth *usecase.AuthService, email, pass string) *http.Cookie {

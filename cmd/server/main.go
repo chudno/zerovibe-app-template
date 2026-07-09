@@ -37,6 +37,9 @@ func run() error {
 	appBaseURL := env("APP_BASE_URL", "http://localhost:8080")
 	cookieName := env("SESSION_COOKIE", "zv_session")
 	secureCookie := envBool("SECURE_COOKIE", true)
+	// ZV_PREVIEW=1 — приложение запущено в live-превью платформы (cross-site iframe):
+	// сессионную cookie надо ставить SameSite=None; Secure, иначе вход не удержится.
+	previewMode := envBool("ZV_PREVIEW", false)
 	// Платформа подставляет адрес API и сервис-ключ для отправки писем при деплое.
 	platformURL := os.Getenv("PLATFORM_API_URL")
 	platformKey := os.Getenv("PLATFORM_API_KEY")
@@ -107,6 +110,7 @@ func run() error {
 	srv, err := web.NewServer(notes, auth, settings, web.Config{
 		SecureCookie: secureCookie,
 		CookieName:   cookieName,
+		PreviewMode:  previewMode,
 	})
 	if err != nil {
 		return err

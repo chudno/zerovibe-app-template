@@ -33,6 +33,35 @@ func TestLogin_SetsCookie(t *testing.T) {
 	}
 }
 
+// Обычный (не превью) режим: cookie сессии — SameSite=Lax (CSRF-защита), без Secure
+// (SecureCookie=false в тестах).
+func TestLogin_Cookie_NormalModeIsLax(t *testing.T) {
+	h, auth, _ := buildStack(t, false)
+	c := seedAdminAndLogin(t, h, auth, "a@b.com", "password123")
+	if c.SameSite != http.SameSiteLaxMode {
+		t.Errorf("вне превью cookie должна быть SameSite=Lax, получено %v", c.SameSite)
+	}
+	if c.Secure {
+		t.Error("вне превью при SecureCookie=false cookie не должна быть Secure")
+	}
+}
+
+// Превью-режим (cross-site iframe): cookie сессии — SameSite=None; Secure, иначе
+// браузер не сохранит её во фрейме и вход не удержится.
+func TestLogin_Cookie_PreviewModeIsNoneSecure(t *testing.T) {
+	h, auth := buildStackPreview(t)
+	c := seedAdminAndLogin(t, h, auth, "a@b.com", "password123")
+	if c.SameSite != http.SameSiteNoneMode {
+		t.Errorf("в превью cookie должна быть SameSite=None, получено %v", c.SameSite)
+	}
+	if !c.Secure {
+		t.Error("в превью cookie должна быть Secure (иначе браузер отвергнет SameSite=None)")
+	}
+	if !c.HttpOnly {
+		t.Error("cookie сессии должна оставаться HttpOnly и в превью")
+	}
+}
+
 // Неверный пароль на форме входа: страница перерисовывается с ошибкой (200, НЕ 401 —
 // форма того же origin показывает текст ошибки), сессионная cookie не ставится.
 func TestLogin_WrongPassword_RerendersFormNoCookie(t *testing.T) {
