@@ -7,7 +7,10 @@
 # --- build ---
 FROM golang:1.25-alpine AS build
 WORKDIR /src
-RUN apk add --no-cache curl ca-certificates
+# libstdc++ — musl-бинарь tailwindcss-extra динамически линкован с C++ stdlib
+# (иначе `Error relocating ... _ZTVN10__cxxabiv... symbol not found`, exit 127);
+# в чистом golang:alpine его нет. curl/ca-certificates — скачать tailwind.
+RUN apk add --no-cache curl ca-certificates libstdc++
 
 # Кэш зависимостей отдельным слоем.
 COPY go.mod go.sum ./
