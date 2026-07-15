@@ -1,4 +1,4 @@
-.PHONY: run dev build test vet check css css-watch docker docker-run tidy clean
+.PHONY: run dev build test vet check css css-watch docker docker-run tidy context clean
 
 # Версия standalone-бинаря tailwindcss-extra (Tailwind CSS + DaisyUI внутри,
 # Node НЕ нужен). Пин версии — для воспроизводимости сборки.
@@ -67,6 +67,12 @@ docker-run: docker
 
 tidy:
 	go mod tidy
+
+# context — собрать весь код шаблона в PROJECT_CONTEXT.md (путь+содержимое каждого
+# файла), чтобы агент читал ОДИН файл на старте вместо десятков Read/Glob. Пере-
+# собирать при изменении структуры шаблона.
+context:
+	@bash scripts/gen-context.sh
 
 clean:
 	rm -rf bin zerovibe.db zerovibe.db-wal zerovibe.db-shm
