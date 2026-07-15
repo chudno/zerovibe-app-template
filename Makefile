@@ -3,7 +3,10 @@
 # Версия standalone-бинаря tailwindcss-extra (Tailwind CSS + DaisyUI внутри,
 # Node НЕ нужен). Пин версии — для воспроизводимости сборки.
 TW_VERSION := v2.9.1
-TW_BIN := ./bin/tailwindcss-extra
+# TW — какой бинарь звать. Если tailwindcss-extra есть в PATH (в облачном превью он
+# вшит в образ раннера) — берём его, НИЧЕГО не качаем. Иначе — локальный ./bin/...
+# (правило ниже его скачает). Так шаблон работает и в поде, и на машине разработчика.
+TW := $(shell command -v tailwindcss-extra 2>/dev/null || echo ./bin/tailwindcss-extra)
 # Ассет под текущую ОС/арх (локально — macOS; в Docker переопределяется).
 TW_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
 TW_ARCH := $(shell uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')
@@ -13,22 +16,30 @@ TW_URL := https://github.com/dobicinaitis/tailwind-cli-extra/releases/download/$
 CSS_IN := assets/input.css
 CSS_OUT := internal/transport/web/static/app.css
 
-# Скачать бинарь tailwindcss-extra, если ещё нет.
-$(TW_BIN):
-	@mkdir -p bin
-	@echo "→ качаю $(TW_ASSET) ($(TW_VERSION))"
-	@curl -sSL -o $(TW_BIN) $(TW_URL)
-	@chmod +x $(TW_BIN)
+# Скачать бинарь в ./bin/, если его нет ни в PATH, ни локально. --fail (HTTP-ошибка
+# = провал, а не битый файл), --retry (рвущаяся РФ-сеть); chmod +x и проверка
+# размера — в ОДНОЙ цели: оборванная закачка не оставит файл без +x, из-за которого
+# make css потом падал бы Permission denied. tw-bin — no-op, если TW уже из PATH.
+tw-bin:
+	@command -v tailwindcss-extra >/dev/null 2>&1 && exit 0; \
+	if [ ! -x ./bin/tailwindcss-extra ]; then \
+		mkdir -p bin; \
+		echo "→ качаю $(TW_ASSET) ($(TW_VERSION))"; \
+		curl -sSL --fail --retry 3 --retry-delay 3 -o ./bin/tailwindcss-extra.tmp "$(TW_URL)" \
+			&& chmod +x ./bin/tailwindcss-extra.tmp \
+			&& mv ./bin/tailwindcss-extra.tmp ./bin/tailwindcss-extra; \
+	fi
+.PHONY: tw-bin
 
 # Сборка CSS: сканирует html-шаблоны, генерит минимальный CSS (tree-shaking) в
 # static/app.css, который вшивается в бинарь через embed. Гоняй после правки
 # классов в шаблонах.
-css: $(TW_BIN)
-	$(TW_BIN) -i $(CSS_IN) -o $(CSS_OUT) --minify
+css: tw-bin
+	$(TW) -i $(CSS_IN) -o $(CSS_OUT) --minify
 
 # Watch-режим для разработки (пересобирает CSS при изменении шаблонов).
-css-watch: $(TW_BIN)
-	$(TW_BIN) -i $(CSS_IN) -o $(CSS_OUT) --watch
+css-watch: tw-bin
+	$(TW) -i $(CSS_IN) -o $(CSS_OUT) --watch
 
 # Локальный запуск (БД в текущем каталоге). CSS собираем перед стартом.
 run: css
