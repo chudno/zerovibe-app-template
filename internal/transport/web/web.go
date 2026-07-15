@@ -146,6 +146,10 @@ func (s *Server) Routes() http.Handler {
 	// диска, чтобы пересобранный `make css` был виден без пересборки бинаря.
 	if s.dev {
 		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir(devStaticDir))))
+		// Галерея экранов (только dev): фаза 1 двухфазной сборки — смотреть вид
+		// экранов-заготовок до привязки роутов/данных (см. gallery.go).
+		mux.HandleFunc("GET /_screens", s.handleScreensGallery)
+		mux.HandleFunc("GET /_screens/{name}", s.handleScreenRender)
 	} else {
 		mux.Handle("GET /static/", http.FileServerFS(staticFS))
 	}

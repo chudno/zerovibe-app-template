@@ -1,0 +1,10 @@
+{
+  "Title": "Настройки",
+  "Page": "settings",
+  "User": { "ID": 1, "Email": "demo@example.com" },
+  "Settings": [
+    { "Key": "app_name", "Title": "Название приложения", "Value": "Мой продукт", "Set": true },
+    { "Key": "support_email", "Title": "Почта поддержки", "Value": "help@example.com", "Set": true },
+    { "Key": "smtp_password", "Title": "Пароль SMTP", "Value": "", "Set": false }
+  ]
+}
