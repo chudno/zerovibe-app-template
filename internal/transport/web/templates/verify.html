@@ -1,19 +1,12 @@
 {{define "verify"}}
-<div class="mx-auto mt-6 w-full max-w-sm">
-	<div class="card border border-base-300 bg-base-100">
-		<div class="card-body gap-4">
-			{{if .Flash}}<div class="alert alert-info text-sm">{{.Flash}}</div>{{end}}
-			{{if .Err}}<div class="alert alert-error text-sm">{{.Err}}</div>{{end}}
-			<p class="text-sm text-base-content/70">Не пришло письмо? Отправим ещё раз.</p>
-			<form method="post" action="/resend-verification">
-				<fieldset class="fieldset">
-					<label class="label" for="email">Email</label>
-					<input id="email" class="input w-full" type="email" name="email" value="{{.Email}}" autocomplete="username" required>
-					<button class="btn btn-primary btn-block mt-2" type="submit">Отправить письмо повторно</button>
-				</fieldset>
-			</form>
-			<div class="text-sm"><a class="link link-hover" href="/login">Вернуться ко входу</a></div>
-		</div>
-	</div>
-</div>
+<h1>Подтверждение email</h1>
+{{if .Flash}}<p>{{.Flash}}</p>{{end}}
+{{if .Err}}<p>{{.Err}}</p>{{end}}
+<p>Не пришло письмо? Отправим ещё раз.</p>
+<form method="post" action="/resend-verification">
+	<label for="email">Email</label>
+	<input id="email" type="email" name="email" value="{{.Email}}" autocomplete="username" required>
+	<button type="submit">Отправить письмо повторно</button>
+</form>
+<p><a href="/login">Вернуться ко входу</a></p>
 {{end}}

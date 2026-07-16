@@ -61,7 +61,6 @@ func run() error {
 	}
 
 	// repository
-	noteRepo := sqlite.NewNoteRepo(database)
 	userRepo := sqlite.NewUserRepo(database)
 	sessRepo := sqlite.NewSessionRepo(database)
 	resetRepo := sqlite.NewResetRepo(database)
@@ -78,7 +77,6 @@ func run() error {
 
 	// usecase
 	settings := usecase.NewSettingsService(settingRepo)
-	notes := usecase.NewNoteService(noteRepo)
 	auth := usecase.NewAuthService(
 		userRepo, sessRepo, resetRepo, verifyRepo, rlRepo,
 		hasher, mailer, settings,
@@ -107,7 +105,7 @@ func run() error {
 	}
 
 	// transport
-	srv, err := web.NewServer(notes, auth, settings, web.Config{
+	srv, err := web.NewServer(auth, settings, web.Config{
 		SecureCookie: secureCookie,
 		CookieName:   cookieName,
 		PreviewMode:  previewMode,
@@ -117,11 +115,11 @@ func run() error {
 	}
 
 	// Встроенная админка: реестр сущностей + generic-CRUD. Регистрируем сущности
-	// приложения (эталон — Note и User). Добавить новую сущность в админку = одна
-	// строка adminres.RegisterX(reg, repo) здесь (см. skill new-feature).
+	// приложения (эталон — User). Добавить новую сущность в админку = одна строка
+	// adminres.RegisterX(reg, repo) здесь (полный рабочий образец всех слоёв —
+	// skill new-feature, examples/note).
 	reg := admin.NewRegistry()
 	adminres.RegisterUser(reg, userRepo, hasher)
-	adminres.RegisterNote(reg, noteRepo, adminres.UserOptions(userRepo))
 	adminSrv, err := admin.NewServer(reg, files)
 	if err != nil {
 		return err

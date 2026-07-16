@@ -1,9 +1,26 @@
+// Package sqlite — реализация портов usecase поверх SQLite.
+//
+// КЛЮЧЕВОЙ ПАТТЕРН: записи (Create/Delete/Update) идут через db.Write — попадают в
+// единую writer-горутину и сериализуются (нет SQLITE_BUSY). Чтения (List/Get) идут
+// через db.Read — параллельно. Конвертация domain↔строка БД — в этом слое.
+//
+// ОБРАЗЕЦ ДЛЯ ГЕНЕРАЦИИ: на каждую сущность — свой репозиторий, реализующий
+// порт из usecase. INSERT/UPDATE/DELETE оборачивать в db.Write, SELECT — в db.Read.
 package sqlite
 
 import (
+	"context"
+	"database/sql"
 	"log/slog"
 	"time"
 )
+
+// writer — минимальный интерфейс к платформенному db.DB (Write/Read). Принимаем
+// интерфейсом, а не *db.DB, чтобы репозитории было легко тестировать.
+type writer interface {
+	Write(ctx context.Context, fn func(*sql.DB) error) error
+	Read(fn func(*sql.DB) error) error
+}
 
 // sqliteTime — формат хранения времени в текстовых колонках (как datetime('now')).
 // Единый формат для записи и чтения по всем репозиториям.

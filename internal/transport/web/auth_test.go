@@ -86,12 +86,12 @@ func TestLogin_WrongPassword_RerendersFormNoCookie(t *testing.T) {
 
 func TestProtectedRedirectsWhenAnonymous(t *testing.T) {
 	h, _, _ := buildStack(t, false)
-	// Защищённый раздел (/notes) — гостя уводит на /login.
-	req := httptest.NewRequest("GET", "/notes", nil)
+	// Защищённый раздел (/admin/settings) — гостя уводит на /login.
+	req := httptest.NewRequest("GET", "/admin/settings", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("гость на /notes должен получить редирект 303, получен %d", rec.Code)
+		t.Fatalf("гость на /admin/settings должен получить редирект 303, получен %d", rec.Code)
 	}
 	if loc := rec.Header().Get("Location"); loc != "/login" {
 		t.Errorf("ожидался редирект на /login, получено %q", loc)
@@ -108,16 +108,13 @@ func TestLandingPublicForAnonymous(t *testing.T) {
 		t.Fatalf("гость на / (лендинг) должен получить 200, получен %d", rec.Code)
 	}
 	body := rec.Body.String()
-	// Лендинг гостя ведёт к регистрации (главное действие) и несёт шапку/подвал.
-	if !strings.Contains(body, `href="/register"`) {
-		t.Error("лендинг должен вести на регистрацию (href=/register)")
-	}
-	if !strings.Contains(body, "<footer") || !strings.Contains(body, "<header") {
-		t.Error("лендинг должен содержать шапку и подвал")
+	// Главная — логотип по центру (define "landing"/"zv-logo" в layout.html).
+	if !strings.Contains(body, "vibe_") || !strings.Contains(body, `class="landing"`) {
+		t.Error("главная должна показывать логотип по центру")
 	}
 	// Техничка (стек) не должна протекать конечному пользователю. Бренд Zerovibe
-	// на витрине САМОЙ платформы уместен (логотип, демо-домен project.zerovibe.app),
-	// поэтому его в стоп-листе нет — сюда попадают только детали реализации.
+	// на витрине САМОЙ платформы уместен (логотип), поэтому его в стоп-листе нет —
+	// сюда попадают только детали реализации.
 	for _, leak := range []string{"DaisyUI", "HTMX", "SQLite", "Эталонный шаблон"} {
 		if strings.Contains(body, leak) {
 			t.Errorf("лендинг не должен содержать техничку: %q", leak)
@@ -127,13 +124,15 @@ func TestLandingPublicForAnonymous(t *testing.T) {
 
 func TestProtectedAccessibleWithCookie(t *testing.T) {
 	h, auth, _ := buildStack(t, false)
+	// seedAdminAndLogin даёт cookie админа — единственная роль, которой открыт
+	// защищённый /admin/settings.
 	c := seedAdminAndLogin(t, h, auth, "a@b.com", "password123")
-	req := httptest.NewRequest("GET", "/notes", nil)
+	req := httptest.NewRequest("GET", "/admin/settings", nil)
 	req.AddCookie(c)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("с cookie /notes должен открываться, получен %d", rec.Code)
+		t.Fatalf("с cookie админа /admin/settings должен открываться, получен %d", rec.Code)
 	}
 	if !strings.Contains(rec.Body.String(), "<html") {
 		t.Error("ожидалась полная страница")
@@ -191,13 +190,13 @@ func TestRegisterOpen_CreatesAndLogsIn(t *testing.T) {
 	if got == nil {
 		t.Fatalf("после открытой регистрации ожидался автологин (cookie), код %d, тело: %s", rec.Code, rec.Body.String())
 	}
-	// и доступ к защищённому разделу /notes есть
-	req := httptest.NewRequest("GET", "/notes", nil)
+	// автологин действует: с cookie главная (/) открывается пользователю (200).
+	req := httptest.NewRequest("GET", "/", nil)
 	req.AddCookie(got)
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, req)
 	if rec2.Code != http.StatusOK {
-		t.Errorf("новый пользователь должен иметь доступ к /notes, получен %d", rec2.Code)
+		t.Errorf("новый пользователь должен видеть главную, получен %d", rec2.Code)
 	}
 }
 
@@ -264,51 +263,6 @@ func TestLoginRateLimited_429(t *testing.T) {
 	if last.Header().Get("Retry-After") == "" {
 		t.Errorf("после превышения лимита ожидался заголовок Retry-After, тело: %s", last.Body.String())
 	}
-}
-
-func TestNotesScopedToOwner(t *testing.T) {
-	h, auth, settings := buildStack(t, true)
-	_ = settings
-	// два пользователя: админ (сид) и второй через регистрацию
-	cA := seedAdminAndLogin(t, h, auth, "a@owner.com", "password123")
-	recB := postForm(h, "/register", url.Values{"email": {"b@owner.com"}, "password": {"password123"}}, nil)
-	var cB *http.Cookie
-	for _, ck := range recB.Result().Cookies() {
-		if ck.Name == "zv_session" && ck.Value != "" {
-			cB = ck
-		}
-	}
-	if cB == nil {
-		t.Fatal("второй пользователь не залогинен")
-	}
-
-	// A создаёт заметку
-	postA := postForm(h, "/notes", url.Values{"title": {"Секрет A"}}, cA)
-	m := noteIDRe.FindStringSubmatch(postA.Body.String())
-	if m == nil {
-		t.Fatalf("не нашли id заметки A: %s", postA.Body.String())
-	}
-	idA := m[1]
-
-	// B не видит заметку A
-	getB := httptest.NewRequest("GET", "/notes", nil)
-	getB.AddCookie(cB)
-	recGetB := httptest.NewRecorder()
-	h.ServeHTTP(recGetB, getB)
-	if strings.Contains(recGetB.Body.String(), "Секрет A") {
-		t.Error("пользователь B не должен видеть заметки пользователя A")
-	}
-
-	// B не может удалить заметку A → 404
-	delB := httptest.NewRequest("DELETE", "/notes/"+idA, nil)
-	delB.AddCookie(cB)
-	recDelB := httptest.NewRecorder()
-	h.ServeHTTP(recDelB, delB)
-	if recDelB.Code != http.StatusNotFound {
-		t.Errorf("удаление чужой заметки должно дать 404, получен %d", recDelB.Code)
-	}
-	_ = auth
-	_ = settings
 }
 
 func TestEmailVerification_BlocksLoginThenConfirms(t *testing.T) {
@@ -450,8 +404,8 @@ func TestLoginRegisterPages_RedirectWhenAuthed(t *testing.T) {
 		if rec.Code != http.StatusSeeOther {
 			t.Errorf("GET %s залогиненным → ожидался 303, получен %d", path, rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/notes" {
-			t.Errorf("GET %s залогиненным → Location %q, ожидался /notes", path, loc)
+		if loc := rec.Header().Get("Location"); loc != "/" {
+			t.Errorf("GET %s залогиненным → Location %q, ожидался /", path, loc)
 		}
 	}
 }

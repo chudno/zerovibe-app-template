@@ -1,5 +1,4 @@
-// E2E-тест транспорта заметок на полном стеке (реальный SQLite во временном файле).
-// Заметки теперь личные — все запросы идут под сессией засиженного пользователя.
+// E2E-тесты транспорта на полном стеке (реальный SQLite во временном файле).
 package web
 
 import (
@@ -18,7 +17,7 @@ import (
 	"github.com/chudno/zerovibe/internal/usecase"
 )
 
-// noMailer — заглушка Mailer для тестов транспорта заметок (письма тут не нужны).
+// noMailer — заглушка Mailer для тестов транспорта (письма тут не нужны).
 type noMailer struct{}
 
 func (noMailer) Send(_ context.Context, _ usecase.Email) error { return nil }
@@ -72,7 +71,6 @@ func buildStackWithMailer(t *testing.T, allowSignup bool) (http.Handler, *usecas
 	} else {
 		_ = settings.Set(context.Background(), "allow_signup", "false")
 	}
-	notes := usecase.NewNoteService(sqlite.NewNoteRepo(database))
 	auth := usecase.NewAuthService(
 		sqlite.NewUserRepo(database), sqlite.NewSessionRepo(database),
 		sqlite.NewResetRepo(database), sqlite.NewEmailVerificationRepo(database), sqlite.NewRateLimitRepo(database),
@@ -89,7 +87,7 @@ func buildStackWithMailer(t *testing.T, allowSignup bool) (http.Handler, *usecas
 			SetupToken:      testSetupToken,
 		},
 	)
-	srv, err := NewServer(notes, auth, settings, Config{SecureCookie: false, CookieName: "zv_session"})
+	srv, err := NewServer(auth, settings, Config{SecureCookie: false, CookieName: "zv_session"})
 	if err != nil {
 		t.Fatalf("сервер: %v", err)
 	}
@@ -120,7 +118,6 @@ func buildStack(t *testing.T, allowSignup bool) (http.Handler, *usecase.AuthServ
 	if err := settings.Set(context.Background(), "allow_signup", val); err != nil {
 		t.Fatalf("настройка allow_signup: %v", err)
 	}
-	notes := usecase.NewNoteService(sqlite.NewNoteRepo(database))
 	auth := usecase.NewAuthService(
 		sqlite.NewUserRepo(database), sqlite.NewSessionRepo(database),
 		sqlite.NewResetRepo(database), sqlite.NewEmailVerificationRepo(database), sqlite.NewRateLimitRepo(database),
@@ -137,7 +134,7 @@ func buildStack(t *testing.T, allowSignup bool) (http.Handler, *usecase.AuthServ
 			SetupToken:      testSetupToken,
 		},
 	)
-	srv, err := NewServer(notes, auth, settings, Config{SecureCookie: false, CookieName: "zv_session"})
+	srv, err := NewServer(auth, settings, Config{SecureCookie: false, CookieName: "zv_session"})
 	if err != nil {
 		t.Fatalf("сервер: %v", err)
 	}
@@ -158,7 +155,6 @@ func buildStackPreview(t *testing.T) (http.Handler, *usecase.AuthService) {
 		t.Fatalf("миграции: %v", err)
 	}
 	settings := usecase.NewSettingsService(sqlite.NewSettingRepo(database))
-	notes := usecase.NewNoteService(sqlite.NewNoteRepo(database))
 	auth := usecase.NewAuthService(
 		sqlite.NewUserRepo(database), sqlite.NewSessionRepo(database),
 		sqlite.NewResetRepo(database), sqlite.NewEmailVerificationRepo(database), sqlite.NewRateLimitRepo(database),
@@ -173,7 +169,7 @@ func buildStackPreview(t *testing.T) (http.Handler, *usecase.AuthService) {
 			SetupToken:      testSetupToken,
 		},
 	)
-	srv, err := NewServer(notes, auth, settings, Config{SecureCookie: false, CookieName: "zv_session", PreviewMode: true})
+	srv, err := NewServer(auth, settings, Config{SecureCookie: false, CookieName: "zv_session", PreviewMode: true})
 	if err != nil {
 		t.Fatalf("сервер: %v", err)
 	}
@@ -207,8 +203,6 @@ func loginCookie(t *testing.T, h http.Handler, email, pass string) *http.Cookie 
 	return nil
 }
 
-var noteIDRe = regexp.MustCompile(`id="note-(\d+)"`)
-
 // newAuthedServer — стек + cookie залогиненного пользователя (через сид-админа).
 func newAuthedServer(t *testing.T) (http.Handler, *http.Cookie) {
 	h, auth, _ := buildStack(t, false)
@@ -216,31 +210,10 @@ func newAuthedServer(t *testing.T) (http.Handler, *http.Cookie) {
 	return h, c
 }
 
-func TestCreateReturnsFragment(t *testing.T) {
-	h, c := newAuthedServer(t)
-
-	form := url.Values{"title": {"Купить хлеб"}, "body": {"и молоко"}}
-	req := httptest.NewRequest("POST", "/notes", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(c)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("ожидался 200, получен %d: %s", rec.Code, rec.Body.String())
-	}
-	body := rec.Body.String()
-	if strings.Contains(body, "<html") {
-		t.Error("ответ POST должен быть фрагментом, а не полной страницей")
-	}
-	if !strings.Contains(body, "Купить хлеб") || !strings.Contains(body, `id="note-`) {
-		t.Errorf("фрагмент заметки не содержит ожидаемого, получено: %s", body)
-	}
-}
-
 func TestStaticServed(t *testing.T) {
 	h, _ := newAuthedServer(t)
-	for _, name := range []string{"htmx.min.js", "app.css"} {
+	// app.css больше нет (DaisyUI убрали) — проверяем оставшуюся статику: htmx и шрифт.
+	for _, name := range []string{"htmx.min.js", "fonts/onest-400.woff2"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest("GET", "/static/"+name, nil))
 		if rec.Code != http.StatusOK {
@@ -249,75 +222,5 @@ func TestStaticServed(t *testing.T) {
 		if rec.Body.Len() == 0 {
 			t.Errorf("GET /static/%s: пустое тело", name)
 		}
-	}
-}
-
-func TestIndexShowsCreatedNote(t *testing.T) {
-	h, c := newAuthedServer(t)
-
-	form := url.Values{"title": {"Видна в списке"}}
-	postReq := httptest.NewRequest("POST", "/notes", strings.NewReader(form.Encode()))
-	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	postReq.AddCookie(c)
-	h.ServeHTTP(httptest.NewRecorder(), postReq)
-
-	getReq := httptest.NewRequest("GET", "/notes", nil)
-	getReq.AddCookie(c)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, getReq)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("ожидался 200, получен %d", rec.Code)
-	}
-	body := rec.Body.String()
-	if !strings.Contains(body, "<html") {
-		t.Error("GET / должен возвращать полную страницу")
-	}
-	if !strings.Contains(body, "Видна в списке") {
-		t.Error("созданная заметка не отображается в списке")
-	}
-}
-
-func TestDeleteRemovesNote(t *testing.T) {
-	h, c := newAuthedServer(t)
-
-	form := url.Values{"title": {"Удалить меня"}}
-	postReq := httptest.NewRequest("POST", "/notes", strings.NewReader(form.Encode()))
-	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	postReq.AddCookie(c)
-	postRec := httptest.NewRecorder()
-	h.ServeHTTP(postRec, postReq)
-	// id заметки берём из фрагмента ответа (устойчиво к нумерации).
-	m := noteIDRe.FindStringSubmatch(postRec.Body.String())
-	if m == nil {
-		t.Fatalf("не нашли id заметки в ответе: %s", postRec.Body.String())
-	}
-	id := m[1]
-
-	delReq := httptest.NewRequest("DELETE", "/notes/"+id, nil)
-	delReq.AddCookie(c)
-	delRec := httptest.NewRecorder()
-	h.ServeHTTP(delRec, delReq)
-	if delRec.Code != http.StatusOK {
-		t.Fatalf("ожидался 200 на удаление, получен %d", delRec.Code)
-	}
-
-	getReq := httptest.NewRequest("GET", "/notes", nil)
-	getReq.AddCookie(c)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, getReq)
-	if strings.Contains(rec.Body.String(), "Удалить меня") {
-		t.Error("заметка должна быть удалена из списка")
-	}
-}
-
-func TestDeleteNotFound(t *testing.T) {
-	h, c := newAuthedServer(t)
-	req := httptest.NewRequest("DELETE", "/notes/999", nil)
-	req.AddCookie(c)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("ожидался 404 на несуществующую заметку, получен %d", rec.Code)
 	}
 }

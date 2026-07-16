@@ -16,7 +16,7 @@ import (
 // (fail/clientIP), которым бизнес-слой не нужен (нужны только шаблоны и cfg).
 func newBareServer(t *testing.T) *Server {
 	t.Helper()
-	srv, err := NewServer(nil, nil, nil, Config{SecureCookie: false, CookieName: "zv_session"})
+	srv, err := NewServer(nil, nil, Config{SecureCookie: false, CookieName: "zv_session"})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}

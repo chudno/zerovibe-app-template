@@ -62,9 +62,8 @@ const appName = "Zerovibe"
 type pageData struct {
 	AppName     string // имя приложения (логотип/подвал); проставляется в renderPage
 	Title       string
-	Page        string // "landing" | "notes" | "login" | "register" | "forgot" | "reset" | "settings"
+	Page        string // "landing" | "login" | "register" | "forgot" | "reset" | "settings" | "verify"
 	User        *domain.User
-	Notes       []domain.Note
 	Settings    []usecase.SettingView
 	Flash       string // нейтральное сообщение (forgot/reset/verify)
 	Err         string // текст ошибки формы
@@ -76,7 +75,6 @@ type pageData struct {
 // Server держит зависимости транспорта.
 type Server struct {
 	tmpl     *template.Template
-	notes    *usecase.NoteService
 	auth     *usecase.AuthService
 	settings *usecase.SettingsService
 	admin    *admin.Server // встроенная админка (nil → не смонтирована)
@@ -105,7 +103,7 @@ func (s *Server) templates() *template.Template {
 func (s *Server) SetAdmin(a *admin.Server) { s.admin = a }
 
 // NewServer парсит шаблоны и собирает сервер.
-func NewServer(notes *usecase.NoteService, auth *usecase.AuthService, settings *usecase.SettingsService, cfg Config) (*Server, error) {
+func NewServer(auth *usecase.AuthService, settings *usecase.SettingsService, cfg Config) (*Server, error) {
 	if cfg.CookieName == "" {
 		cfg.CookieName = "zv_session"
 	}
@@ -116,7 +114,7 @@ func NewServer(notes *usecase.NoteService, auth *usecase.AuthService, settings *
 	// ZV_DEV=1 включает live-reload вёрстки (шаблоны/статика с диска). В проде НЕ
 	// ставится — приложение работает целиком из embed. См. templates() и Routes().
 	dev := os.Getenv("ZV_DEV") == "1"
-	return &Server{tmpl: tmpl, notes: notes, auth: auth, settings: settings, cfg: cfg, dev: dev}, nil
+	return &Server{tmpl: tmpl, auth: auth, settings: settings, cfg: cfg, dev: dev}, nil
 }
 
 // Routes возвращает http.Handler со всеми маршрутами, обёрнутыми в loadUser.
@@ -142,25 +140,16 @@ func (s *Server) Routes() http.Handler {
 
 	// Служебное и статика.
 	mux.HandleFunc("GET /healthz", s.handleHealth)
-	// В проде статика (в т.ч. собранный app.css) — из embed. В dev-режиме отдаём с
-	// диска, чтобы пересобранный `make css` был виден без пересборки бинаря.
+	// В проде статика — из embed. В dev-режиме (ZV_DEV=1) отдаём с диска, чтобы
+	// правки были видны без пересборки бинаря.
 	if s.dev {
 		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir(devStaticDir))))
-		// Галерея экранов (только dev): фаза 1 двухфазной сборки — смотреть вид
-		// экранов-заготовок до привязки роутов/данных (см. gallery.go).
-		mux.HandleFunc("GET /_screens", s.handleScreensGallery)
-		mux.HandleFunc("GET /_screens/{name}", s.handleScreenRender)
 	} else {
 		mux.Handle("GET /static/", http.FileServerFS(staticFS))
 	}
 
-	// Публичная главная — лендинг «эталонный шаблон» (без авторизации).
+	// Публичная главная — логотип (без авторизации).
 	mux.HandleFunc("GET /", s.handleLanding)
-
-	// Защищённые (демо-раздел заметок — личные, эталон сущности для новых фич).
-	mux.HandleFunc("GET /notes", s.requireAuth(s.handleIndex))
-	mux.HandleFunc("POST /notes", s.requireAuth(s.handleCreate))
-	mux.HandleFunc("DELETE /notes/{id}", s.requireAuth(s.handleDelete))
 
 	// Админ (настройки приложения).
 	mux.HandleFunc("GET /admin/settings", s.requireRole(domain.RoleAdmin, s.handleSettingsPage))
@@ -257,11 +246,9 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 // --- хендлеры: страницы ---
 
-// handleIndex — полная страница со списком личных заметок.
-// handleLanding — публичная главная (лендинг «эталонный шаблон»). Точный роут
-// "GET /"; ServeMux уводит неизвестные пути в NotFound автоматически, поэтому
-// ручная проверка пути тут не нужна. Залогиненного пользователя мягко ведём в
-// его раздел (эталон заметок), гостю показываем лендинг.
+// handleLanding — публичная главная (логотип по центру). Точный роут "GET /";
+// ServeMux уводит неизвестные пути в NotFound автоматически, ручная проверка пути
+// не нужна.
 func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -270,19 +257,9 @@ func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 	s.renderPage(w, r, pageData{Page: "landing", User: currentUser(r)})
 }
 
-func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	u := currentUser(r)
-	notes, err := s.notes.List(r.Context(), u.ID)
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	s.renderPage(w, r, pageData{Title: "Заметки", Page: "notes", User: u, Notes: notes})
-}
-
 func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	if u := currentUser(r); u != nil {
-		http.Redirect(w, r, "/notes", http.StatusSeeOther)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 	allow, _ := s.settings.Bool(r.Context(), "allow_signup")
@@ -291,7 +268,7 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
 	if u := currentUser(r); u != nil {
-		http.Redirect(w, r, "/notes", http.StatusSeeOther)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 	allow, _ := s.settings.Bool(r.Context(), "allow_signup")
@@ -338,7 +315,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setSessionCookie(w, sess)
-	s.redirect(w, r, "/notes")
+	s.redirect(w, r, "/")
 }
 
 // handleAdminLoginPage показывает отдельную форму входа в админку (свой дизайн).
@@ -451,7 +428,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setSessionCookie(w, sess)
-	s.redirect(w, r, "/notes")
+	s.redirect(w, r, "/")
 }
 
 // handleSetup — первичная настройка: создаёт ПЕРВОГО администратора по одноразовому
@@ -503,33 +480,6 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 		Title: "Вход", Page: "login",
 		Flash: "Пароль изменён. Войдите с новым паролем.",
 	})
-}
-
-func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
-	u := currentUser(r)
-	n, err := s.notes.Create(r.Context(), u.ID, r.FormValue("title"), r.FormValue("body"))
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates().ExecuteTemplate(w, "note", n); err != nil {
-		s.fail(w, r, err)
-	}
-}
-
-func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		http.Error(w, "некорректный id", http.StatusBadRequest)
-		return
-	}
-	u := currentUser(r)
-	if err := s.notes.Delete(r.Context(), id, u.ID); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) handleSetSetting(w http.ResponseWriter, r *http.Request) {
